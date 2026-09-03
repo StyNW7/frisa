@@ -24,8 +24,12 @@ Know what you have  →  Use it at the right time  →  Avoid overbuying  →  R
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev      # development
+npm run pwa      # production build + preview, installable as an app
 ```
+
+The prototype is an installable PWA: opened in a browser it offers **Install FRISA**,
+runs full screen from the home screen, and keeps working offline.
 
 ## The pitch in one screen flow
 

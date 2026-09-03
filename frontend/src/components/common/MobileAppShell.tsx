@@ -4,6 +4,7 @@ import { BottomNavigation, NAV_ITEMS } from '@/components/common/BottomNavigatio
 import { ToastViewport } from '@/components/common/Feedback'
 import { AskFrisaSheet } from '@/components/assistant/AskFrisaSheet'
 import { FridgeSwitcherSheet } from '@/components/common/FridgeSwitcherSheet'
+import { InstallPrompt } from '@/components/common/InstallPrompt'
 import { cn } from '@/lib/utils'
 
 const TAB_ROUTES = NAV_ITEMS.map((item) => item.to)
@@ -31,6 +32,8 @@ export function MobileAppShell() {
         <Outlet />
       </main>
 
+      {/* Only on the main tabs, so pushed screens with their own action bar stay untouched. */}
+      {showNav ? <InstallPrompt /> : null}
       {showNav ? <BottomNavigation /> : null}
 
       <ToastViewport />

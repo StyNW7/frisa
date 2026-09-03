@@ -16,6 +16,7 @@ import type { UserPreference } from '@/types'
 import { TopHeader } from '@/components/common/TopHeader'
 import { Button } from '@/components/common/Button'
 import { BottomSheet, ConfirmationSheet } from '@/components/common/BottomSheet'
+import { InstallRow } from '@/components/common/InstallPrompt'
 import { ListRow, SectionHeader, Switch } from '@/components/common/Primitives'
 import { StatusChip } from '@/components/common/Badges'
 import {
@@ -155,6 +156,7 @@ export function ProfilePage() {
               onClick={() => navigate('/recipes')}
               tone="orange"
             />
+            <InstallRow />
           </div>
         </section>
 
