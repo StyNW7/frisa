@@ -4,80 +4,137 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 262.1 83.3% 57.8%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 262.1 83.3% 57.8%;
-    --radius: 1rem;
+    --frisa-green: #25b877;
+    --frisa-orange: #fc8612;
+    --app-shell-radius: 34px;
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 263.4 70% 50.4%;
-  }
-}
-
-@layer base {
   * {
-    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-canvas font-sans text-ink antialiased;
+    margin: 0;
+    overscroll-behavior-y: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--frisa-green);
+    outline-offset: 2px;
   }
 }
 
-/* Reset HTML */
+@layer components {
+  /* The mobile viewport. Full-bleed on phones, a centred device canvas on desktop.
+     The frame owns the height so bottom sheets, toasts and the nav can be
+     absolutely positioned against it exactly like a native app. */
+  .app-frame {
+    @apply relative mx-auto flex w-full flex-col overflow-hidden bg-canvas;
+    max-width: 440px;
+    height: 100dvh;
+  }
 
-* {
-  box-sizing: border-box;
-  font-family: Arial, sans-serif;
-  scroll-behavior: smooth;
+  .card {
+    @apply rounded-3xl border border-line bg-surface shadow-card;
+  }
+
+  .card-flat {
+    @apply rounded-3xl border border-line bg-surface;
+  }
+
+  .press {
+    @apply transition-all duration-200 ease-out active:scale-[0.975];
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .edge-fade {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-mist;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: '';
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    transform: translateX(-100%);
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-/* Scrollbar Design */
+/* Desktop chrome around the mobile canvas */
+@media (min-width: 900px) {
+  body {
+    background:
+      radial-gradient(1100px 620px at 50% -8%, #eaf8f1 0%, rgba(234, 248, 241, 0) 62%),
+      linear-gradient(180deg, #f2f5f3 0%, #e9edea 100%);
+  }
 
-::-webkit-scrollbar{
-  width: 10px;
-  height: 5px;
+  .app-frame {
+    @apply my-7 border border-line/80 shadow-device;
+    border-radius: var(--app-shell-radius);
+    height: min(884px, calc(100dvh - 56px));
+  }
 }
 
-::-webkit-scrollbar-track{
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.2);
+/* Recharts polish */
+.recharts-surface {
+  overflow: visible;
 }
 
-::-webkit-scrollbar-thumb{
-  background: #9333EA;
-  border-radius: 10px;
+.recharts-default-tooltip {
+  border-radius: 14px !important;
+}
+
+.recharts-text {
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
