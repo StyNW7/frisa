@@ -95,12 +95,41 @@ export interface DerivedRecipe extends Recipe {
   rescueValue: number
 }
 
+/**
+ * Pairing credentials for one FRISA hub.
+ *
+ * In the product this lives in the device firmware; the browser stands in for the
+ * hub here so the flow can be demonstrated without a backend. The password itself
+ * is never held - only a salted, iterated digest of it.
+ */
+export interface DeviceSecurity {
+  /** Random per-device salt for the pairing digest. */
+  salt: string
+  /** Salted digest of the current pairing password. */
+  passwordDigest: string
+  /** True while the hub still accepts the password printed at the factory. */
+  usingFactoryPassword: boolean
+  /** What the label under the hub reads. Owners type this in once, then change it. */
+  factoryPassword: string
+  /** Issued on a successful pairing. This, not the password, is what authorises the app. */
+  pairingToken?: string
+  /** ISO timestamp of the successful pairing. */
+  pairedAt?: string
+  /** Consecutive failed attempts since the last success. */
+  failedAttempts: number
+  /** Epoch milliseconds until which further attempts are refused. */
+  lockedUntil?: number
+}
+
 export interface Fridge {
   id: string
   name: string
   location: string
   deviceId: string
   online: boolean
+  /** This app holds a valid pairing token for the hub. Without it the fridge stays locked. */
+  paired: boolean
+  security: DeviceSecurity
   /** Minutes since the hub last synced. */
   lastSyncMinutes: number
   battery: number

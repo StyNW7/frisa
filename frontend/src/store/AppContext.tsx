@@ -4,6 +4,7 @@ import type {
   ActivityKind,
   AppNotification,
   AssistantMessage,
+  DeviceSecurity,
   Fridge,
   FoodItem,
   NotificationCategory,
@@ -12,7 +13,7 @@ import type {
   ShoppingItem,
   UserPreference,
 } from '@/types'
-import { createSeedFridges } from '@/data/fridges'
+import { createSeedFridges, pairedHomeSecurity } from '@/data/fridges'
 import {
   createSeedActivity,
   createSeedNotifications,
@@ -21,6 +22,14 @@ import {
 } from '@/data/seed'
 import { CO2_PER_KG, INSIGHT_DATA } from '@/data/insights'
 import { planConsumption } from '@/lib/recipes'
+import {
+  LOCKOUT_MS,
+  MAX_ATTEMPTS,
+  passwordAccepted,
+  verifyPairing,
+  type PairingOutcome,
+} from '@/lib/pairing'
+import { derivePairingDigest, randomHex, timingSafeEqual } from '@/lib/crypto'
 import { clamp, isPriority, riskScore, uid } from '@/lib/utils'
 import { readStore, STORAGE_KEYS, writeStore, clearStore } from '@/lib/storage'
 
@@ -53,6 +62,10 @@ type Action =
   | { type: 'set-active-fridge'; id: string }
   | { type: 'rename-fridge'; id: string; name: string }
   | { type: 'sync-fridge'; id: string }
+  | { type: 'pair-device'; id: string; token: string }
+  | { type: 'pair-failed'; id: string }
+  | { type: 'unpair-device'; id: string }
+  | { type: 'set-device-password'; id: string; digest: string; token: string }
   | { type: 'add-item'; fridgeId: string; item: FoodItem }
   | { type: 'update-item'; fridgeId: string; id: string; patch: Partial<FoodItem> }
   | { type: 'consume-item'; fridgeId: string; id: string; portion: number }
@@ -84,8 +97,69 @@ function mapItems(state: AppState, fridgeId: string, fn: (items: FoodItem[]) => 
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'set-active-fridge':
+    case 'set-active-fridge': {
+      // A fridge that has not been paired on this device stays unreadable.
+      const target = state.fridges.find((f) => f.id === action.id)
+      if (!target?.paired) return state
       return { ...state, activeFridgeId: action.id }
+    }
+
+    case 'pair-device':
+      return mapFridge(state, action.id, (f) => ({
+        ...f,
+        paired: true,
+        security: {
+          ...f.security,
+          pairingToken: action.token,
+          pairedAt: new Date().toISOString(),
+          failedAttempts: 0,
+          lockedUntil: undefined,
+        },
+      }))
+
+    case 'pair-failed':
+      return mapFridge(state, action.id, (f) => {
+        const failedAttempts = f.security.failedAttempts + 1
+        const locked = failedAttempts >= MAX_ATTEMPTS
+        return {
+          ...f,
+          security: {
+            ...f.security,
+            // The counter restarts after a lockout, so the next window is a fresh five.
+            failedAttempts: locked ? 0 : failedAttempts,
+            lockedUntil: locked ? Date.now() + LOCKOUT_MS : f.security.lockedUntil,
+          },
+        }
+      })
+
+    case 'unpair-device': {
+      // Never strand the app with no readable fridge; the UI blocks this too.
+      const pairedCount = state.fridges.filter((f) => f.paired).length
+      if (pairedCount <= 1) return state
+
+      const next = mapFridge(state, action.id, (f) => ({
+        ...f,
+        paired: false,
+        security: { ...f.security, pairingToken: undefined, pairedAt: undefined, failedAttempts: 0 },
+      }))
+      if (state.activeFridgeId !== action.id) return next
+      const fallback = next.fridges.find((f) => f.paired)
+      return fallback ? { ...next, activeFridgeId: fallback.id } : next
+    }
+
+    case 'set-device-password':
+      return mapFridge(state, action.id, (f) => ({
+        ...f,
+        security: {
+          ...f.security,
+          passwordDigest: action.digest,
+          usingFactoryPassword: false,
+          // Changing the password re-issues the token, so other phones must pair again.
+          pairingToken: action.token,
+          failedAttempts: 0,
+          lockedUntil: undefined,
+        },
+      }))
 
     case 'rename-fridge':
       return mapFridge(state, action.id, (f) => ({ ...f, name: action.name }))
@@ -202,14 +276,25 @@ function reducer(state: AppState, action: Action): AppState {
 }
 
 function createInitialState(): AppState {
-  const fridges = createSeedFridges()
+  const setupDone = readStore<boolean>(STORAGE_KEYS.setupDone, false)
   const storedNames = readStore<Record<string, string>>(STORAGE_KEYS.fridgeNames, {})
-  const named = fridges.map((f) => (storedNames[f.id] ? { ...f, name: storedNames[f.id] } : f))
+
+  const fridges = createSeedFridges().map((fridge) => {
+    const named = storedNames[fridge.id] ? { ...fridge, name: storedNames[fridge.id] } : fridge
+    // Someone who finished setup in an earlier session already paired the home hub
+    // and chose their own password, so restore it rather than locking them out.
+    if (named.id === 'home' && setupDone) {
+      return { ...named, paired: true, security: pairedHomeSecurity() }
+    }
+    return named
+  })
+
   const storedActive = readStore<string>(STORAGE_KEYS.activeFridge, 'home')
+  const activeIsUsable = fridges.some((f) => f.id === storedActive && f.paired)
 
   return {
-    fridges: named,
-    activeFridgeId: named.some((f) => f.id === storedActive) ? storedActive : 'home',
+    fridges,
+    activeFridgeId: activeIsUsable ? storedActive : (fridges.find((f) => f.paired)?.id ?? 'home'),
     notifications: createSeedNotifications(),
     activity: createSeedActivity(),
     shopping: createSeedShopping(),
@@ -225,6 +310,11 @@ function createInitialState(): AppState {
 /* -------------------------------------------------------------------------- */
 /*  Context                                                                    */
 /* -------------------------------------------------------------------------- */
+
+export type ChangePasswordResult =
+  | { status: 'changed' }
+  | { status: 'wrong-current' }
+  | { status: 'rejected'; reason: string }
 
 export interface RecipeCompletionResult {
   rescuedValue: number
@@ -243,6 +333,15 @@ export interface AppContextValue extends AppState {
   setActiveFridge: (id: string) => void
   renameFridge: (id: string, name: string) => void
   syncFridge: (id: string) => void
+  /** Verifies the pairing password on the hub and, on success, authorises this app. */
+  pairDevice: (fridgeId: string, password: string) => PairingOutcome
+  /** Revokes this app's pairing token. The fridge locks again until it is re-paired. */
+  unpairDevice: (fridgeId: string) => void
+  changeDevicePassword: (
+    fridgeId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) => ChangePasswordResult
   addItem: (item: FoodItem, opts?: { source?: FoodItem['source'] }) => void
   updateItem: (id: string, patch: Partial<FoodItem>) => void
   consumeItem: (id: string, portion?: number) => void
@@ -267,7 +366,7 @@ export interface AppContextValue extends AppState {
   pushAssistantMessage: (role: AssistantMessage['role'], text: string) => void
   resetAssistant: () => void
   completeOnboarding: () => void
-  completeSetup: (patch: Partial<UserPreference> & { fridgeName?: string }) => void
+  completeSetup: (patch: Partial<UserPreference> & { fridgeName?: string; homePassword?: string }) => void
   resetDemo: () => void
 }
 
@@ -446,13 +545,106 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.sessionSavings],
   )
 
+  const pairDevice = useCallback<AppContextValue['pairDevice']>(
+    (fridgeId, password) => {
+      const fridge = state.fridges.find((f) => f.id === fridgeId)
+      if (!fridge) return { status: 'offline' }
+
+      const outcome = verifyPairing(fridge, password)
+
+      if (outcome.status === 'paired') {
+        dispatch({ type: 'pair-device', id: fridgeId, token: outcome.token })
+        logActivity('sync', `${fridge.name} paired`, `${fridge.deviceId} authorised this phone`)
+        notify(
+          'System',
+          `${fridge.name} paired securely`,
+          `${fridge.deviceId} now trusts this phone. Unpair it any time from device settings.`,
+          { link: '/device' },
+        )
+        if (outcome.usingFactoryPassword) {
+          notify(
+            'System',
+            'Change the factory password',
+            `${fridge.deviceId} still uses the password printed on its label. Anyone who can read the label can connect.`,
+            { high: true, link: '/device' },
+          )
+        }
+      } else if (outcome.status === 'wrong-password') {
+        dispatch({ type: 'pair-failed', id: fridgeId })
+      }
+
+      return outcome
+    },
+    [state.fridges, logActivity, notify],
+  )
+
+  const unpairDevice = useCallback<AppContextValue['unpairDevice']>(
+    (fridgeId) => {
+      const fridge = state.fridges.find((f) => f.id === fridgeId)
+      dispatch({ type: 'unpair-device', id: fridgeId })
+      if (fridge) {
+        logActivity('sync', `${fridge.name} unpaired`, `${fridge.deviceId} no longer trusts this phone`)
+      }
+    },
+    [state.fridges, logActivity],
+  )
+
+  const changeDevicePassword = useCallback<AppContextValue['changeDevicePassword']>(
+    (fridgeId, currentPassword, newPassword) => {
+      const fridge = state.fridges.find((f) => f.id === fridgeId)
+      if (!fridge) return { status: 'rejected', reason: 'Device not found.' }
+
+      const security: DeviceSecurity = fridge.security
+      const currentDigest = derivePairingDigest(currentPassword, security.salt)
+      if (!timingSafeEqual(currentDigest, security.passwordDigest)) {
+        return { status: 'wrong-current' }
+      }
+      if (!passwordAccepted(newPassword, security.factoryPassword)) {
+        return { status: 'rejected', reason: 'The new password does not meet the requirements.' }
+      }
+      if (timingSafeEqual(derivePairingDigest(newPassword, security.salt), security.passwordDigest)) {
+        return { status: 'rejected', reason: 'Choose a password you have not used on this hub.' }
+      }
+
+      dispatch({
+        type: 'set-device-password',
+        id: fridgeId,
+        digest: derivePairingDigest(newPassword, security.salt),
+        token: randomHex(24),
+      })
+      logActivity('sync', `${fridge.name} pairing password changed`, fridge.deviceId)
+      notify(
+        'System',
+        'Pairing password updated',
+        `${fridge.deviceId} now requires the new password. Other phones must pair again.`,
+        { link: '/device' },
+      )
+      return { status: 'changed' }
+    },
+    [state.fridges, logActivity, notify],
+  )
+
   const completeSetup = useCallback<AppContextValue['completeSetup']>(
-    ({ fridgeName, ...prefs }) => {
+    ({ fridgeName, homePassword, ...prefs }) => {
       if (fridgeName) dispatch({ type: 'rename-fridge', id: 'home', name: fridgeName })
+      dispatch({ type: 'pair-device', id: 'home', token: randomHex(24) })
+      if (homePassword) {
+        const home = state.fridges.find((f) => f.id === 'home')
+        if (home) {
+          dispatch({
+            type: 'set-device-password',
+            id: 'home',
+            digest: derivePairingDigest(homePassword, home.security.salt),
+            token: randomHex(24),
+          })
+        }
+      }
+      // Only reachable once the hub is paired, so this is now a valid target.
+      dispatch({ type: 'set-active-fridge', id: 'home' })
       dispatch({ type: 'set-preferences', preferences: { ...DEFAULT_PREFERENCES, ...prefs } })
       dispatch({ type: 'set-setup-done' })
     },
-    [],
+    [state.fridges],
   )
 
   const resetDemo = useCallback(() => {
@@ -474,6 +666,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'sync-fridge', id })
         logActivity('sync', 'Inventory synchronized', 'Requested from the app')
       },
+      pairDevice,
+      unpairDevice,
+      changeDevicePassword,
       addItem,
       updateItem,
       consumeItem,
@@ -513,6 +708,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       completeRecipe,
       logActivity,
       notify,
+      pairDevice,
+      unpairDevice,
+      changeDevicePassword,
       completeSetup,
       resetDemo,
     ],

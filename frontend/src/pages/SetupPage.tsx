@@ -4,13 +4,16 @@ import {
   ArrowLeft,
   Check,
   CircleCheck,
-  Cpu,
+  Lock,
   Minus,
   Plus,
   Radar,
   Refrigerator,
+  ShieldCheck,
+  TriangleAlert,
   Users,
   Utensils,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { PlainAppShell } from '@/components/common/MobileAppShell'
@@ -22,12 +25,18 @@ import {
   DIET_OPTIONS,
   RECIPE_PREF_OPTIONS,
 } from '@/data/seed'
+import { PairingSheet } from '@/components/device/PairingSheet'
 import { useApp, useToast } from '@/hooks/useApp'
+import { passwordAccepted, passwordRules, passwordStrength } from '@/lib/pairing'
 import { cn } from '@/lib/utils'
 
-type ConnectionState = 'searching' | 'connecting' | 'connected'
-
 const STEPS = ['Fridge', 'Device', 'Household', 'Food'] as const
+
+const STRENGTH_META = {
+  weak: { label: 'Weak', bar: 'bg-danger-500', text: 'text-danger-600' },
+  fair: { label: 'Fair', bar: 'bg-ember-500', text: 'text-ember-700' },
+  strong: { label: 'Strong', bar: 'bg-frisa-500', text: 'text-frisa-700' },
+} as const
 
 function ChipSelect({
   options,
@@ -68,8 +77,10 @@ function ChipSelect({
 
 export function SetupPage() {
   const navigate = useNavigate()
-  const { completeSetup } = useApp()
+  const { completeSetup, fridges } = useApp()
   const { toast } = useToast()
+
+  const homeHub = fridges.find((f) => f.id === 'home')!
 
   const [step, setStep] = useState(0)
   const [fridgeName, setFridgeName] = useState('Home Fridge')
@@ -79,34 +90,50 @@ export function SetupPage() {
   const [allergies, setAllergies] = useState<string[]>(['Peanuts'])
   const [cuisines, setCuisines] = useState<string[]>(['Indonesian', 'Asian'])
   const [recipePrefs, setRecipePrefs] = useState<string[]>(['High Protein'])
-  const [connection, setConnection] = useState<ConnectionState>('searching')
   const [done, setDone] = useState(false)
 
-  /* Simulated pairing sequence, restarted every time the user lands on step 2. */
+  /* Device pairing */
+  const [scanning, setScanning] = useState(true)
+  const [pairingOpen, setPairingOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [skipPasswordChange, setSkipPasswordChange] = useState(false)
+
+  /* Discovery runs whenever the user arrives at the device step. */
   useEffect(() => {
     if (step !== 1) return
-    setConnection('searching')
-    const toConnecting = window.setTimeout(() => setConnection('connecting'), 1200)
-    const toConnected = window.setTimeout(() => setConnection('connected'), 2600)
-    return () => {
-      window.clearTimeout(toConnecting)
-      window.clearTimeout(toConnected)
+    if (homeHub.paired) {
+      setScanning(false)
+      return
     }
-  }, [step])
+    setScanning(true)
+    const timer = window.setTimeout(() => setScanning(false), 1300)
+    return () => window.clearTimeout(timer)
+  }, [step, homeHub.paired])
 
   const toggle = (list: string[], setList: (next: string[]) => void) => (value: string) =>
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
 
   const canContinue = useMemo(() => {
     if (step === 0) return fridgeName.trim().length > 1
-    if (step === 1) return connection === 'connected'
+    if (step === 1) {
+      if (!homeHub.paired) return false
+      if (skipPasswordChange || !newPassword) return true
+      return passwordAccepted(newPassword, homeHub.security.factoryPassword) && newPassword === confirmPassword
+    }
     if (step === 2) return household.trim().length > 1
     return true
-  }, [step, fridgeName, connection, household])
+  }, [step, fridgeName, household, homeHub, skipPasswordChange, newPassword, confirmPassword])
 
   const finish = () => {
+    const chosenPassword =
+      !skipPasswordChange && passwordAccepted(newPassword, homeHub.security.factoryPassword) && newPassword === confirmPassword
+        ? newPassword
+        : undefined
+
     completeSetup({
       fridgeName: fridgeName.trim(),
+      homePassword: chosenPassword,
       household: household.trim(),
       members,
       diet,
@@ -249,11 +276,12 @@ export function SetupPage() {
           ) : null}
 
           {step === 1 ? (
-            <section key="s1" className="animate-fade-up space-y-5 pt-2">
+            <section key="s1" className="animate-fade-up space-y-4 pt-2">
+              {/* Discovered device */}
               <div className="relative overflow-hidden rounded-[28px] border border-line bg-gradient-to-b from-frisa-50 to-white p-6">
                 <div className="flex flex-col items-center">
                   <span className="relative mb-5 flex h-24 w-24 items-center justify-center rounded-[28px] bg-white shadow-card">
-                    {connection !== 'connected' ? (
+                    {scanning || !homeHub.paired ? (
                       <>
                         <span className="absolute inset-0 animate-pulse-ring rounded-[28px] bg-frisa-200" aria-hidden />
                         <span
@@ -267,64 +295,198 @@ export function SetupPage() {
                   </span>
 
                   <p className="text-sm font-bold text-ink">FRISA Hub</p>
-                  <p className="num mt-0.5 text-xs font-semibold text-ink-muted">FRISA-HUB-0182</p>
+                  <p className="num mt-0.5 text-xs font-semibold text-ink-muted">{homeHub.deviceId}</p>
 
                   <div className="mt-4">
-                    {connection === 'searching' ? (
-                      <StatusChip tone="orange" icon={Radar}>
-                        Nearby device detected
+                    {scanning ? (
+                      <StatusChip tone="neutral" icon={Radar}>
+                        Searching for nearby hubs
                       </StatusChip>
-                    ) : connection === 'connecting' ? (
-                      <StatusChip tone="orange" icon={Cpu}>
-                        Connecting to hub
+                    ) : homeHub.paired ? (
+                      <StatusChip tone="green" icon={CircleCheck}>
+                        Paired securely
                       </StatusChip>
                     ) : (
-                      <StatusChip tone="green" icon={CircleCheck}>
-                        Connected
+                      <StatusChip tone="orange" icon={Lock}>
+                        Locked - password required
                       </StatusChip>
                     )}
                   </div>
                 </div>
               </div>
 
-              <ol className="space-y-2.5">
-                {(
-                  [
-                    ['searching', 'Searching for nearby FRISA devices'],
-                    ['connecting', 'Pairing with FRISA-HUB-0182'],
-                    ['connected', 'Synchronising inventory'],
-                  ] as Array<[ConnectionState, string]>
-                ).map(([state, label], i) => {
-                  const order: ConnectionState[] = ['searching', 'connecting', 'connected']
-                  const currentIndex = order.indexOf(connection)
-                  const complete = currentIndex > i || connection === 'connected'
-                  const active = currentIndex === i && connection !== 'connected'
-                  return (
-                    <li key={state} className="flex items-center gap-3">
-                      <span
-                        className={cn(
-                          'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors duration-300',
-                          complete
-                            ? 'bg-frisa-500 text-white'
-                            : active
-                              ? 'bg-ember-50 text-ember-700 ring-2 ring-ember-200'
-                              : 'bg-mist text-ink-faint',
-                        )}
+              {/* Pair, or confirm the pairing */}
+              {!homeHub.paired ? (
+                <>
+                  <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
+                    <p className="text-[13px] leading-relaxed text-frisa-800">
+                      Anyone in Wi-Fi range can see this hub, so it will not share anything until you prove it is
+                      yours. Enter the password printed on its label.
+                    </p>
+                  </div>
+
+                  <Button size="lg" block disabled={scanning} onClick={() => setPairingOpen(true)}>
+                    <Lock className="h-[18px] w-[18px]" strokeWidth={2.1} aria-hidden />
+                    {scanning ? 'Searching...' : 'Enter pairing password'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <ol className="space-y-2.5">
+                    {['Hub discovered on your network', 'Password verified on the device', 'Inventory synchronised'].map(
+                      (label, i) => (
+                        <li key={label} className="flex items-center gap-3">
+                          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-frisa-500 text-white">
+                            <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
+                          </span>
+                          <span className="text-[13px] font-semibold text-ink">{label}</span>
+                          <span className="sr-only">step {i + 1} complete</span>
+                        </li>
+                      ),
+                    )}
+                  </ol>
+
+                  {/* Replace the factory password */}
+                  <div className="card overflow-hidden">
+                    <div className="flex items-start gap-3 border-b border-line bg-ember-50 p-4">
+                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-ember-600" strokeWidth={2.2} aria-hidden />
+                      <div>
+                        <p className="text-[13px] font-bold text-ember-800">Replace the factory password</p>
+                        <p className="mt-1 text-[13px] leading-snug text-ember-800/80">
+                          The password on the label is printed on every hub of this model. Set your own so only your
+                          household can connect.
+                        </p>
+                      </div>
+                    </div>
+
+                    {skipPasswordChange ? (
+                      <button
+                        type="button"
+                        onClick={() => setSkipPasswordChange(false)}
+                        className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-mist/60"
                       >
-                        {complete ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : i + 1}
-                      </span>
-                      <span
-                        className={cn(
-                          'text-[13px] font-semibold',
-                          complete ? 'text-ink' : active ? 'text-ink' : 'text-ink-faint',
-                        )}
-                      >
-                        {label}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
+                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mist text-ink-soft">
+                          <Lock className="h-4 w-4" strokeWidth={2.1} aria-hidden />
+                        </span>
+                        <span className="text-[13px] font-semibold text-ink">
+                          Set a password now after all
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="space-y-3.5 p-4">
+                        <div>
+                          <label htmlFor="setup-new-password" className="mb-1.5 block text-[13px] font-bold text-ink">
+                            New pairing password
+                          </label>
+                          <input
+                            id="setup-new-password"
+                            type="password"
+                            value={newPassword}
+                            onChange={(event) => setNewPassword(event.target.value)}
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            placeholder="At least 8 characters"
+                            className="h-[52px] w-full rounded-2xl border border-line bg-mist/50 px-4 text-[15px] font-semibold text-ink placeholder:font-normal placeholder:text-ink-faint focus:border-frisa-400 focus:bg-surface focus:outline-none"
+                          />
+                        </div>
+
+                        {newPassword ? (
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-2xs font-semibold text-ink-muted">Strength</span>
+                              <span
+                                className={cn(
+                                  'text-2xs font-bold',
+                                  STRENGTH_META[passwordStrength(newPassword).level].text,
+                                )}
+                              >
+                                {STRENGTH_META[passwordStrength(newPassword).level].label}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex gap-1" aria-hidden>
+                              {[1, 2, 3, 4, 5].map((stepIndex) => (
+                                <span
+                                  key={stepIndex}
+                                  className={cn(
+                                    'h-1.5 flex-1 rounded-full transition-colors duration-200',
+                                    stepIndex <= passwordStrength(newPassword).score
+                                      ? STRENGTH_META[passwordStrength(newPassword).level].bar
+                                      : 'bg-mist',
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <ul className="space-y-1.5">
+                          {passwordRules(newPassword, homeHub.security.factoryPassword).map((rule) => (
+                            <li key={rule.id} className="flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
+                                  rule.passed ? 'bg-frisa-500 text-white' : 'bg-mist text-ink-faint',
+                                )}
+                              >
+                                {rule.passed ? (
+                                  <Check className="h-2.5 w-2.5" strokeWidth={3.4} aria-hidden />
+                                ) : (
+                                  <X className="h-2.5 w-2.5" strokeWidth={3} aria-hidden />
+                                )}
+                              </span>
+                              <span className={cn('text-xs', rule.passed ? 'text-ink-soft' : 'text-ink-muted')}>
+                                {rule.label}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <div>
+                          <label htmlFor="setup-confirm-password" className="mb-1.5 block text-[13px] font-bold text-ink">
+                            Confirm password
+                          </label>
+                          <input
+                            id="setup-confirm-password"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(event) => setConfirmPassword(event.target.value)}
+                            autoComplete="new-password"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            placeholder="Type it once more"
+                            aria-invalid={confirmPassword.length > 0 && confirmPassword !== newPassword}
+                            className={cn(
+                              'h-[52px] w-full rounded-2xl border bg-mist/50 px-4 text-[15px] font-semibold text-ink placeholder:font-normal placeholder:text-ink-faint focus:bg-surface focus:outline-none',
+                              confirmPassword.length > 0 && confirmPassword !== newPassword
+                                ? 'border-danger-500 focus:border-danger-500'
+                                : 'border-line focus:border-frisa-400',
+                            )}
+                          />
+                          {confirmPassword.length > 0 && confirmPassword !== newPassword ? (
+                            <p className="mt-1.5 text-xs font-semibold text-danger-600">
+                              The two passwords do not match.
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSkipPasswordChange(true)
+                            setNewPassword('')
+                            setConfirmPassword('')
+                          }}
+                          className="w-full rounded-xl py-2 text-[13px] font-semibold text-ink-muted transition-colors hover:bg-mist hover:text-ink"
+                        >
+                          Skip for now, keep the factory password
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </section>
           ) : null}
 
@@ -427,6 +589,17 @@ export function SetupPage() {
           ) : null}
         </div>
 
+        <PairingSheet
+          open={pairingOpen}
+          fridgeId="home"
+          onClose={() => setPairingOpen(false)}
+          onPaired={(fridge) =>
+            toast(`${fridge.deviceId} paired`, {
+              description: 'Now replace the factory password so only your household can connect.',
+            })
+          }
+        />
+
         <div className="shrink-0 border-t border-line bg-surface px-5 pb-7 pt-4">
           <Button
             size="lg"
@@ -434,7 +607,11 @@ export function SetupPage() {
             disabled={!canContinue}
             onClick={() => (step === STEPS.length - 1 ? finish() : setStep((s) => s + 1))}
           >
-            {step === STEPS.length - 1 ? 'Finish setup' : step === 1 && connection !== 'connected' ? 'Connecting...' : 'Continue'}
+            {step === STEPS.length - 1
+              ? 'Finish setup'
+              : step === 1 && !homeHub.paired
+                ? 'Connect your hub to continue'
+                : 'Continue'}
           </Button>
         </div>
       </div>

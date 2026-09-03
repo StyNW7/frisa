@@ -81,10 +81,11 @@ export function createSeedNotifications(): AppNotification[] {
     {
       id: 'n-7',
       category: 'System',
-      title: "Parents' Fridge has not synced for 1 hour",
-      body: 'The hub is online but the last inventory push was delayed. No action needed yet.',
+      title: "Parents' Fridge still uses its factory password",
+      body: 'Every hub of that model ships with the same printed password. Set your own so only your household can connect.',
       at: hoursAgo(1),
       read: false,
+      high: true,
       link: '/fridges',
     },
     {
@@ -97,12 +98,12 @@ export function createSeedNotifications(): AppNotification[] {
     },
     {
       id: 'n-9',
-      category: 'Inventory',
-      title: 'Apartment Fridge went offline',
-      body: 'Last connected about an hour ago. Remote monitoring resumes when the hub reconnects.',
+      category: 'System',
+      title: 'Apartment Fridge is waiting to be paired',
+      body: 'FRISA-HUB-0233 was found on your network. Enter its pairing password to see what is inside.',
       at: hoursAgo(1),
-      read: true,
-      link: '/device',
+      read: false,
+      link: '/fridges',
     },
   ]
 }

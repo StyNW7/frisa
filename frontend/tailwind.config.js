@@ -107,6 +107,18 @@ export default {
           from: { strokeDashoffset: '260' },
           to: { strokeDashoffset: '0' },
         },
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%': { transform: 'translateX(-6px)' },
+          '40%': { transform: 'translateX(6px)' },
+          '60%': { transform: 'translateX(-4px)' },
+          '80%': { transform: 'translateX(4px)' },
+        },
+        'pop-in': {
+          '0%': { transform: 'scale(0.72)', opacity: '0' },
+          '60%': { transform: 'scale(1.06)', opacity: '1' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 220ms ease-out both',
@@ -118,6 +130,8 @@ export default {
         'pulse-ring': 'pulse-ring 2s ease-out infinite',
         shimmer: 'shimmer 1.6s infinite',
         'draw-in': 'draw-in 1.1s ease-out both',
+        shake: 'shake 420ms cubic-bezier(0.36,0.07,0.19,0.97) both',
+        'pop-in': 'pop-in 380ms cubic-bezier(0.22,1,0.36,1) both',
       },
     },
   },

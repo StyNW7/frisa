@@ -472,6 +472,36 @@ const apartmentFridgeItems: FoodSeed[] = [
   },
 ]
 
+/**
+ * Pairing credentials each hub ships with.
+ *
+ * Digests are precomputed from the salt and password below so start-up costs
+ * nothing; a real hub likewise stores the digest, never the password. Regenerate
+ * with `derivePairingDigest(password, salt)` if you change either value.
+ */
+const DEVICE_SECURITY = {
+  home: {
+    salt: '9f2a7c41d0b3e85a',
+    factoryPassword: 'FRISA-4821',
+    factoryDigest: '458e2f01f4bf0ac43f3e11ce80ceb2460de2d9b9f801c256822d9cf9a201f2ca',
+    /** The password this household chose the first time they set FRISA up. */
+    ownerPassword: 'Dapur#2026',
+    ownerDigest: '4ed85035a892d6d1ec975eae969c0ad68ffff64f613d539a1e493b048838fbd5',
+  },
+  parents: {
+    salt: '4e1b8d60a7f2c934',
+    factoryPassword: 'FRISA-7390',
+    factoryDigest: '69e25d7bdb34dff9246d64b78470889d05554cdfb19ae84559ebafc1c7c041fe',
+  },
+  apartment: {
+    salt: 'c73d05f9b21ea648',
+    factoryPassword: 'FRISA-1156',
+    factoryDigest: '27cd82849f6c7a1f34445ac3c48cb07ec97b47829402eb8a9553d4cf41409984',
+  },
+} as const
+
+export const HOME_OWNER_PASSWORD = DEVICE_SECURITY.home.ownerPassword
+
 export function createSeedFridges(): Fridge[] {
   return [
     {
@@ -480,6 +510,16 @@ export function createSeedFridges(): Fridge[] {
       location: 'Kitchen',
       deviceId: 'FRISA-HUB-0182',
       online: true,
+      /* A hub straight out of the box: discovered, but not yet authorised.
+         Completing setup - or reopening the app after setup - pairs it. */
+      paired: false,
+      security: {
+        salt: DEVICE_SECURITY.home.salt,
+        factoryPassword: DEVICE_SECURITY.home.factoryPassword,
+        passwordDigest: DEVICE_SECURITY.home.factoryDigest,
+        usingFactoryPassword: true,
+        failedAttempts: 0,
+      },
       lastSyncMinutes: 2,
       battery: 82,
       wifi: 'Home WiFi',
@@ -492,6 +532,17 @@ export function createSeedFridges(): Fridge[] {
       location: 'Bandung',
       deviceId: 'FRISA-HUB-0219',
       online: true,
+      /* Paired, but nobody ever replaced the password on the label. */
+      paired: true,
+      security: {
+        salt: DEVICE_SECURITY.parents.salt,
+        factoryPassword: DEVICE_SECURITY.parents.factoryPassword,
+        passwordDigest: DEVICE_SECURITY.parents.factoryDigest,
+        usingFactoryPassword: true,
+        failedAttempts: 0,
+        pairingToken: 'seed-token-parents',
+        pairedAt: isoInDays(-31),
+      },
       lastSyncMinutes: 14,
       battery: 64,
       wifi: 'Rumah Bandung',
@@ -503,7 +554,16 @@ export function createSeedFridges(): Fridge[] {
       name: 'Apartment Fridge',
       location: 'Jakarta Selatan',
       deviceId: 'FRISA-HUB-0233',
-      online: false,
+      online: true,
+      /* Found on the network but never authorised on this phone, so it stays locked. */
+      paired: false,
+      security: {
+        salt: DEVICE_SECURITY.apartment.salt,
+        factoryPassword: DEVICE_SECURITY.apartment.factoryPassword,
+        passwordDigest: DEVICE_SECURITY.apartment.factoryDigest,
+        usingFactoryPassword: true,
+        failedAttempts: 0,
+      },
       lastSyncMinutes: 62,
       battery: 41,
       wifi: 'Apartment 21B',
@@ -511,6 +571,19 @@ export function createSeedFridges(): Fridge[] {
       items: build(apartmentFridgeItems),
     },
   ]
+}
+
+/** State of the Home hub for someone who already completed setup in an earlier session. */
+export function pairedHomeSecurity(): Fridge['security'] {
+  return {
+    salt: DEVICE_SECURITY.home.salt,
+    factoryPassword: DEVICE_SECURITY.home.factoryPassword,
+    passwordDigest: DEVICE_SECURITY.home.ownerDigest,
+    usingFactoryPassword: false,
+    failedAttempts: 0,
+    pairingToken: 'seed-token-home',
+    pairedAt: isoInDays(-12),
+  }
 }
 
 /** Categories offered when adding an item manually. */

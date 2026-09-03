@@ -31,6 +31,14 @@ npm run pwa      # production build + preview, installable as an app
 The prototype is an installable PWA: opened in a browser it offers **Install FRISA**,
 runs full screen from the home screen, and keeps working offline.
 
+## Security
+
+Each FRISA hub carries a device ID and a pairing password. A phone on the same Wi-Fi
+sees the hub but gets nothing from it until it enters that password; the hub then
+issues a pairing token, and the owner replaces the password printed at the factory.
+Wrong attempts are rate limited, and only a salted digest of the password is ever
+kept. See the frontend README for the flow and the demo credentials.
+
 ## The pitch in one screen flow
 
 Home shows what needs attention today → tap the riskiest ingredient → FRISA proposes a

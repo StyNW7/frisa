@@ -77,9 +77,9 @@ with the network switched off.
 
 ---
 
-## The two demo flows
+## The three demo flows
 
-Both flows genuinely mutate shared state. Nothing is faked between screens.
+All three genuinely mutate shared state. Nothing is faked between screens.
 
 ### Flow A — waste prevention
 
@@ -95,7 +95,18 @@ Both flows genuinely mutate shared state. Nothing is faked between screens.
 7. **Insights** shows the money-saved figure and the trend chart moved, with a
    *"+RpXX since you opened the app"* badge.
 
-### Flow B — adding food through the IoT hub
+### Flow B — pairing a hub securely
+
+1. **Fridges** shows the Apartment hub as **Not paired**. Its contents, temperature
+   and value are all hidden.
+2. Tap **Enter pairing password** and type something wrong: the field shakes and the
+   attempt budget drops. Five wrong tries and the hub pauses for a minute.
+3. Enter `FRISA-1156` from the device label. The hub verifies it, issues a pairing
+   token, and the fridge unlocks.
+4. **Device — Pairing security** then warns that the hub is still on its factory
+   password. Change it, and the printed password stops working.
+
+### Flow C — adding food through the IoT hub
 
 1. **Scan** → *FRISA Camera* → **Show item to FRISA**.
 2. Simulated recognition: *Ultra Milk Full Cream 1L*, 94% confidence, category Dairy.
@@ -109,6 +120,59 @@ There is also a deliberate failure path: **Scan an unlabelled item** produces
 matching the real FRISA workflow rather than pretending the AI is infallible.
 
 ---
+
+## Device pairing
+
+A hub on your Wi-Fi is visible to everyone in range, so being on the network is not
+the same as being allowed in. Every FRISA hub has a **device ID** and a **pairing
+password**, and it shares nothing until a phone proves it knows that password.
+
+```
+Hub discovered  →  enter pairing password  →  hub issues a pairing token
+                                           →  owner replaces the factory password
+```
+
+**Demo credentials** — printed on the label under each hub, and shown in the app on
+the dashed "device label" card with a reveal toggle:
+
+| Hub | Device ID | Factory password | Starting state |
+|---|---|---|---|
+| Home Fridge | `FRISA-HUB-0182` | `FRISA-4821` | Unpaired — paired during setup |
+| Parents' Fridge | `FRISA-HUB-0219` | `FRISA-7390` | Paired, **still on the factory password** |
+| Apartment Fridge | `FRISA-HUB-0233` | `FRISA-1156` | Discovered, locked |
+
+Once setup has been completed the Home hub is remembered as paired with the
+household's own password, `Dapur#2026`.
+
+### What the flow actually enforces
+
+- **A locked hub reveals nothing.** Its item count, temperature, value and activity
+  are hidden, and the reducer refuses to make an unpaired fridge active — so there is
+  no route into its contents from anywhere in the app.
+- **Rate limiting.** Five wrong attempts and the hub stops answering for a minute,
+  with a live countdown. The remaining budget is always on screen, so the limit is
+  never a surprise.
+- **The password is never stored.** Only a salted, 12,000-iteration SHA-256 digest is
+  held, and comparison is length-independent so a wrong guess leaks no timing signal.
+  Nothing about device credentials is written to `localStorage`.
+- **Pairing issues a token.** That token, not the password, is what authorises the
+  app afterwards. Changing the password re-issues it, so other phones must pair
+  again; unpairing revokes it and the fridge locks.
+- **Default passwords are treated as a problem.** A hub still on its factory password
+  is flagged in Fridges, warned about on the device screen, and raises a high-priority
+  notification, because every hub of a model ships with the same printed password.
+- **Password policy on change:** at least 8 characters, a letter, a number, different
+  from the factory password and from the current one, with a live strength meter.
+
+### Honest limits
+
+There is no backend, so the browser plays the part of the hub: it holds each device's
+salt, digest and factory password in memory. In the product these live in the hub's
+firmware behind a memory-hard KDF (Argon2/scrypt), the digest never leaves the device,
+and pairing runs over a local encrypted channel. `src/lib/crypto.ts` implements SHA-256
+directly rather than using `crypto.subtle`, because the prototype is often demonstrated
+over a plain-http LAN address where `subtle` is unavailable; it is verified against the
+NIST vectors and Node's own implementation across 300+ input lengths.
 
 ## The Waste Risk Score
 
@@ -169,6 +233,7 @@ src/
                  FoodAvatar, FrisaMark, FridgeSwitcherSheet, OnboardingArt
     home/        HomeHeader, StatusHeroCard, PriorityRail, SmartSuggestionCard,
                  QuickActions, SavingsSummaryCard, RecentActivity
+    device/      PairingSheet, DeviceLabelCard, ChangePasswordSheet
     inventory/   FoodCard, FoodTile
     recipes/     RecipeHeroCard, RecipeRow, RecipeMatchBadge, RecipeArt
     insights/    ChartCard + the four Recharts visualisations + DataTable
@@ -180,7 +245,7 @@ src/
                  preferences, session savings), ToastContext, UiContext
   data/          fridges.ts, recipes.ts, insights.ts, seed.ts
   lib/           utils.ts (dates, currency, risk engine), recipes.ts, assistant.ts,
-                 storage.ts, pwa.ts
+                 storage.ts, pwa.ts, crypto.ts (SHA-256 + digests), pairing.ts
   types/         FoodItem, Recipe, Fridge, AppNotification, ActivityEvent, …
 scripts/
   generate-icons.mjs   reproducible PWA icon rasteriser
