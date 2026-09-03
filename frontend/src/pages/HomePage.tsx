@@ -30,10 +30,15 @@ export function HomePage() {
         <div className="pointer-events-none absolute -right-14 -top-10 h-44 w-44 rounded-full border border-white/10" aria-hidden />
         <div className="pointer-events-none absolute -left-16 top-16 h-52 w-52 rounded-full border border-white/10" aria-hidden />
         <HomeHeader />
-        <div className="h-16" />
+        {/* Green the hero card overlaps into. Taller than the overlap so the card
+            never crowds the fridge selector above it. */}
+        <div className="h-24" />
       </div>
 
-      <div className="-mt-14 space-y-7 px-5">
+      {/* `relative` is required, not decorative: the green header above is positioned,
+          and CSS paints positioned elements over static siblings whatever the DOM
+          order, which would otherwise hide the top of the hero card. */}
+      <div className="relative z-10 -mt-14 space-y-7 px-5">
         {loading ? <SkeletonBlock className="h-[148px]" /> : <StatusHeroCard />}
 
         {loading ? (
