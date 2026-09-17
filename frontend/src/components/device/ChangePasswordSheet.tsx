@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Eye, EyeOff, Lock, ShieldCheck, TriangleAlert, X } from 'lucide-react'
 import type { Fridge } from '@/types'
 import { BottomSheet } from '@/components/common/BottomSheet'
@@ -90,8 +90,14 @@ export function ChangePasswordSheet({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  /* The handshake resolves on a timer; closing the sheet has to cancel it so a
+     late result cannot land on a form that is no longer on screen. */
+  const handshake = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(handshake.current), [])
+
   useEffect(() => {
     if (open) return
+    window.clearTimeout(handshake.current)
     setCurrent('')
     setNext('')
     setConfirm('')
@@ -111,7 +117,7 @@ export function ChangePasswordSheet({
     setError(null)
 
     // A short beat so the handshake reads as a device round trip rather than a form post.
-    window.setTimeout(() => {
+    handshake.current = window.setTimeout(() => {
       const result = changeDevicePassword(fridge.id, current, next)
       setSaving(false)
 

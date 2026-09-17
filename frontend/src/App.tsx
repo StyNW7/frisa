@@ -4,6 +4,7 @@ import { AppProvider } from '@/store/AppContext'
 import { ToastProvider } from '@/store/ToastContext'
 import { UiProvider } from '@/store/UiContext'
 import { MobileAppShell } from '@/components/common/MobileAppShell'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { useApp } from '@/hooks/useApp'
 
 import { SplashPage } from '@/pages/SplashPage'
@@ -50,6 +51,7 @@ function RequireSetup({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <AppProvider>
         <ToastProvider>
@@ -93,5 +95,6 @@ export default function App() {
         </ToastProvider>
       </AppProvider>
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }

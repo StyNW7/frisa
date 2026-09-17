@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { Check, Info, Plus, ShieldCheck, ShoppingBasket, Sparkles, Trash2, X } from 'lucide-react'
+import type { ShoppingItem } from '@/types'
 import { TopHeader } from '@/components/common/TopHeader'
 import { Button } from '@/components/common/Button'
 import { BottomSheet } from '@/components/common/BottomSheet'
@@ -8,7 +10,60 @@ import { SectionHeader } from '@/components/common/Primitives'
 import { FoodAvatar } from '@/components/common/FoodAvatar'
 import { StatusChip } from '@/components/common/Badges'
 import { useApp, useToast } from '@/hooks/useApp'
-import { cn, formatQuantity, isPriority } from '@/lib/utils'
+import { cn, formatQuantity, isPriority, pluralize } from '@/lib/utils'
+
+/** One line of the list. Suggested and manual entries differ only in their trailing controls. */
+function ShoppingRow({
+  entry,
+  onToggle,
+  onRemove,
+  right,
+  removeIcon: RemoveIcon = Trash2,
+}: {
+  entry: ShoppingItem
+  onToggle: () => void
+  onRemove: () => void
+  right?: React.ReactNode
+  removeIcon?: LucideIcon
+}) {
+  return (
+    <li className="flex items-center gap-3 px-4 py-3">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={entry.checked}
+        aria-label={entry.name}
+        onClick={onToggle}
+        className={cn(
+          'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition-colors',
+          entry.checked ? 'border-frisa-500 bg-frisa-500 text-white' : 'border-line',
+        )}
+      >
+        {entry.checked ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : null}
+      </button>
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            'block truncate text-sm font-semibold',
+            entry.checked ? 'text-ink-faint line-through' : 'text-ink',
+          )}
+        >
+          {entry.name}
+        </span>
+        {entry.note ? <span className="block truncate text-xs text-ink-muted">{entry.note}</span> : null}
+      </span>
+      {right}
+      <button
+        type="button"
+        aria-label={`Remove ${entry.name}`}
+        onClick={onRemove}
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-mist hover:text-danger-500"
+      >
+        <RemoveIcon className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+      </button>
+    </li>
+  )
+}
 
 export function ShoppingListPage() {
   const { shopping, items, activeFridge, addShoppingItem, toggleShoppingItem, removeShoppingItem } = useApp()
@@ -19,6 +74,13 @@ export function ShoppingListPage() {
 
   const suggested = shopping.filter((s) => s.suggested)
   const manual = shopping.filter((s) => !s.suggested)
+  const checked = shopping.filter((s) => s.checked)
+
+  const clearChecked = () => {
+    const count = checked.length
+    checked.forEach((entry) => removeShoppingItem(entry.id))
+    toast(`${pluralize(count, 'item')} cleared`, { tone: 'info', description: 'Ticked items left the list.' })
+  }
 
   /* Overbuying prevention: what the fridge already holds in comfortable quantity. */
   const alreadyAvailable = useMemo(
@@ -92,40 +154,14 @@ export function ShoppingListPage() {
           ) : (
             <ul className="card divide-y divide-line overflow-hidden">
               {suggested.map((entry) => (
-                <li key={entry.id} className="flex items-center gap-3 px-4 py-3">
-                  <button
-                    type="button"
-                    aria-label={entry.checked ? `Uncheck ${entry.name}` : `Check ${entry.name}`}
-                    aria-pressed={entry.checked}
-                    onClick={() => toggleShoppingItem(entry.id)}
-                    className={cn(
-                      'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition-colors',
-                      entry.checked ? 'border-frisa-500 bg-frisa-500 text-white' : 'border-line',
-                    )}
-                  >
-                    {entry.checked ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
-                  </button>
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={cn(
-                        'block truncate text-sm font-semibold',
-                        entry.checked ? 'text-ink-faint line-through' : 'text-ink',
-                      )}
-                    >
-                      {entry.name}
-                    </span>
-                    {entry.note ? <span className="block truncate text-xs text-ink-muted">{entry.note}</span> : null}
-                  </span>
-                  <StatusChip tone="green">{entry.qty}</StatusChip>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${entry.name}`}
-                    onClick={() => removeShoppingItem(entry.id)}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-mist hover:text-danger-500"
-                  >
-                    <X className="h-4 w-4" strokeWidth={2.4} />
-                  </button>
-                </li>
+                <ShoppingRow
+                  key={entry.id}
+                  entry={entry}
+                  onToggle={() => toggleShoppingItem(entry.id)}
+                  onRemove={() => removeShoppingItem(entry.id)}
+                  removeIcon={X}
+                  right={<StatusChip tone="green">{entry.qty}</StatusChip>}
+                />
               ))}
             </ul>
           )}
@@ -133,7 +169,12 @@ export function ShoppingListPage() {
 
         {/* Manual list */}
         <section>
-          <SectionHeader title="Your list" subtitle={`${manual.length} added by you.`} />
+          <SectionHeader
+            title="Your list"
+            subtitle={`${manual.length} added by you.`}
+            actionLabel={checked.length > 0 ? `Clear ${checked.length} ticked` : undefined}
+            onAction={checked.length > 0 ? clearChecked : undefined}
+          />
           {manual.length === 0 ? (
             <div className="card">
               <EmptyState
@@ -145,45 +186,20 @@ export function ShoppingListPage() {
           ) : (
             <ul className="card divide-y divide-line overflow-hidden">
               {manual.map((entry) => (
-                <li key={entry.id} className="flex items-center gap-3 px-4 py-3">
-                  <button
-                    type="button"
-                    aria-label={entry.checked ? `Uncheck ${entry.name}` : `Check ${entry.name}`}
-                    aria-pressed={entry.checked}
-                    onClick={() => toggleShoppingItem(entry.id)}
-                    className={cn(
-                      'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition-colors',
-                      entry.checked ? 'border-frisa-500 bg-frisa-500 text-white' : 'border-line',
-                    )}
-                  >
-                    {entry.checked ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
-                  </button>
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={cn(
-                        'block truncate text-sm font-semibold',
-                        entry.checked ? 'text-ink-faint line-through' : 'text-ink',
-                      )}
-                    >
-                      {entry.name}
-                    </span>
-                    {entry.note ? <span className="block truncate text-xs text-ink-muted">{entry.note}</span> : null}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${entry.name}`}
-                    onClick={() => removeShoppingItem(entry.id)}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-mist hover:text-danger-500"
-                  >
-                    <Trash2 className="h-4 w-4" strokeWidth={2.2} />
-                  </button>
-                </li>
+                <ShoppingRow
+                  key={entry.id}
+                  entry={entry}
+                  onToggle={() => toggleShoppingItem(entry.id)}
+                  onRemove={() => removeShoppingItem(entry.id)}
+                />
               ))}
             </ul>
           )}
         </section>
 
-        {/* Already available */}
+        {/* Already available. Hidden outright when the fridge has nothing comfortably
+            in stock, rather than shown as an empty card that reads as a glitch. */}
+        {alreadyAvailable.length > 0 ? (
         <section>
           <SectionHeader title="Already available" subtitle="Do not buy these yet." />
           <ul className="card divide-y divide-line overflow-hidden">
@@ -203,6 +219,7 @@ export function ShoppingListPage() {
             Preventing a duplicate purchase is the cheapest way to cut food waste. FRISA blocks it before it happens.
           </p>
         </section>
+        ) : null}
       </div>
 
       {/* Overbuying guard */}

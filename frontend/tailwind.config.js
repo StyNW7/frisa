@@ -82,6 +82,10 @@ export default {
           from: { transform: 'translateY(100%)' },
           to: { transform: 'translateY(0)' },
         },
+        'sheet-down': {
+          from: { transform: 'translateY(0)' },
+          to: { transform: 'translateY(100%)' },
+        },
         'toast-in': {
           from: { opacity: '0', transform: 'translateY(-14px) scale(0.97)' },
           to: { opacity: '1', transform: 'translateY(0) scale(1)' },
@@ -124,6 +128,7 @@ export default {
         'fade-in': 'fade-in 220ms ease-out both',
         'fade-up': 'fade-up 260ms cubic-bezier(0.22,1,0.36,1) both',
         'sheet-up': 'sheet-up 280ms cubic-bezier(0.22,1,0.36,1) both',
+        'sheet-down': 'sheet-down 220ms cubic-bezier(0.4,0,1,1) both',
         'toast-in': 'toast-in 220ms cubic-bezier(0.22,1,0.36,1) both',
         'scan-sweep': 'scan-sweep 2.4s ease-in-out infinite',
         'wave-bar': 'wave-bar 900ms ease-in-out infinite',

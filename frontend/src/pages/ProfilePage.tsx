@@ -152,8 +152,8 @@ export function ProfilePage() {
             <ListRow
               icon={Heart}
               title="Favourite recipes"
-              subtitle={`${favorites.length} saved`}
-              onClick={() => navigate('/recipes')}
+              subtitle={favorites.length > 0 ? `${favorites.length} saved` : 'Nothing saved yet'}
+              to="/recipes?category=Favorites"
               tone="orange"
             />
             <InstallRow />

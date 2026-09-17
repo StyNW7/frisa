@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Camera,
@@ -107,25 +107,43 @@ export function ScanPage() {
     }
   }, [params, setParams])
 
-  const reset = useCallback((next: Mode) => {
-    setMode(next)
-    setDetection(null)
-    setProgress(0)
-    setDraft(EMPTY_DRAFT)
-    setPhase(next === 'manual' ? 'form' : 'ready')
+  /* A scan is a pair of live timers. They are held here so switching mode or
+     leaving the tab mid-scan cancels the run instead of letting a stale result
+     land on whatever the user moved to. */
+  const scanTimers = useRef<{ tick?: number; finish?: number }>({})
+
+  const cancelScan = useCallback(() => {
+    if (scanTimers.current.tick) window.clearInterval(scanTimers.current.tick)
+    if (scanTimers.current.finish) window.clearTimeout(scanTimers.current.finish)
+    scanTimers.current = {}
   }, [])
+
+  useEffect(() => cancelScan, [cancelScan])
+
+  const reset = useCallback(
+    (next: Mode) => {
+      cancelScan()
+      setMode(next)
+      setDetection(null)
+      setProgress(0)
+      setDraft(EMPTY_DRAFT)
+      setPhase(next === 'manual' ? 'form' : 'ready')
+    },
+    [cancelScan],
+  )
 
   /* Simulated recognition run. */
   const runScan = (recognisable: boolean) => {
+    cancelScan()
     setPhase('scanning')
     setProgress(0)
     const started = Date.now()
-    const tick = window.setInterval(() => {
+    scanTimers.current.tick = window.setInterval(() => {
       const elapsed = Date.now() - started
       setProgress(Math.min(100, Math.round((elapsed / 2100) * 100)))
     }, 60)
-    window.setTimeout(() => {
-      window.clearInterval(tick)
+    scanTimers.current.finish = window.setTimeout(() => {
+      cancelScan()
       setProgress(100)
       if (recognisable) {
         const found = mode === 'hub' ? HUB_DETECTION : PHONE_DETECTION

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   BatteryMedium,
@@ -41,10 +41,15 @@ export function DevicePage() {
   const security = activeFridge.security
   const otherPaired = fridges.filter((f) => f.paired && f.id !== activeFridge.id).length
 
+  /* Diagnostics finish on a timer, so leaving the screen mid-test has to cancel it
+     rather than raise a toast for a page the user already left. */
+  const testTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(testTimer.current), [])
+
   const run = (key: TestKey) => {
     if (running) return
     setRunning(key)
-    window.setTimeout(() => {
+    testTimer.current = window.setTimeout(() => {
       setRunning(null)
       switch (key) {
         case 'camera':

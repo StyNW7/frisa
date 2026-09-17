@@ -230,7 +230,8 @@ src/
                  ConfirmationSheet, Badges (StatusChip / RiskBadge / ExpiryBadge),
                  Primitives (MetricCard / SegmentedControl / FilterPills / Switch /
                  ListRow / SectionHeader), Feedback (EmptyState / Skeletons / Toast),
-                 FoodAvatar, FrisaMark, FridgeSwitcherSheet, OnboardingArt
+                 FoodAvatar, FrisaMark, FridgeSwitcherSheet, OnboardingArt,
+                 ErrorBoundary
     home/        HomeHeader, StatusHeroCard, PriorityRail, SmartSuggestionCard,
                  QuickActions, SavingsSummaryCard, RecentActivity
     device/      PairingSheet, DeviceLabelCard, ChangePasswordSheet
@@ -262,6 +263,15 @@ everything.
 
 **Dates.** Seed data stores expiry as an offset in days, converted at load time. The
 demo never goes stale — "expires tomorrow" is always literally tomorrow.
+
+**Navigation.** The shell remembers the scroll position of each history entry, so a new
+screen opens at the top but **Back** returns you to exactly where you were in a long
+inventory, the way a native stack behaves.
+
+**Failure.** An `ErrorBoundary` wraps the app. Because the prototype is presented live,
+a render error must not leave a white screen on a projector: it fails to a readable
+message offering *Try again* or a reset to the seed state, and logs the cause to the
+console.
 
 ---
 
@@ -307,8 +317,20 @@ the header renders every dataset as an accessible `<table>`.
 Icon-only controls carry `aria-label`; tabs, switches and toggles expose
 `role`/`aria-selected`/`aria-pressed`/`aria-checked`; status is never communicated by
 colour alone (waste risk always ships as number + word + icon); focus is visible;
-touch targets are at least 44 px; and `prefers-reduced-motion` disables the
-animations.
+touch targets are at least 44 px; pinch-zoom is never blocked; and
+`prefers-reduced-motion` disables the animations.
+
+**Sheets are real modals.** Opening one moves focus inside it, Tab cycles within it
+instead of reaching the screen behind, Escape closes it, the frame stops scrolling
+underneath, and focus returns to whatever opened it. Each sheet is labelled by its own
+title through `aria-labelledby`.
+
+**Tab groups are keyboard operable.** The filter pills and the segmented controls carry
+`role="tablist"`, so they keep that promise: arrow keys move between options, Home and
+End jump to the ends, and a roving `tabindex` means Tab steps past the whole group
+rather than through every pill. A selection set from elsewhere — Home's *See all* deep
+link into `Use Soon`, for one — scrolls itself into view rather than sitting off the
+right edge where the rail reads as unfiltered.
 
 ---
 

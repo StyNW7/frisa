@@ -1,7 +1,38 @@
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+
+/**
+ * Arrow-key movement for the tab-style controls below. A `role="tablist"` promises
+ * a keyboard user that the arrows move between options and that Tab steps past the
+ * whole group, so the promise has to be kept.
+ */
+function useTabListKeys<T extends string>(options: readonly T[], value: T, onChange: (next: T) => void) {
+  return (event: ReactKeyboardEvent<HTMLElement>) => {
+    const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End']
+    if (!keys.includes(event.key)) return
+
+    const index = options.indexOf(value)
+    if (index === -1) return
+
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? options.length - 1
+          : event.key === 'ArrowRight' || event.key === 'ArrowDown'
+            ? (index + 1) % options.length
+            : (index - 1 + options.length) % options.length
+
+    event.preventDefault()
+    onChange(options[next])
+    // Move real focus too, so the roving tabindex and the caret stay together.
+    const group = event.currentTarget
+    group.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus()
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /*  SectionHeader                                                              */
@@ -107,10 +138,17 @@ export function SegmentedControl<T extends string>({
   className?: string
   label: string
 }) {
+  const onKeyDown = useTabListKeys(
+    options.map((option) => option.value),
+    value,
+    onChange,
+  )
+
   return (
     <div
       role="tablist"
       aria-label={label}
+      onKeyDown={onKeyDown}
       className={cn('flex gap-1 rounded-2xl bg-mist p-1', className)}
     >
       {options.map((option) => {
@@ -121,6 +159,7 @@ export function SegmentedControl<T extends string>({
             role="tab"
             type="button"
             aria-selected={active}
+            tabIndex={active ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
               'h-9 flex-1 rounded-xl px-3 text-[13px] font-semibold transition-all duration-200',
@@ -152,10 +191,23 @@ export function FilterPills<T extends string>({
   label: string
   className?: string
 }) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const onKeyDown = useTabListKeys(options, value, onChange)
+
+  /* The rail scrolls, and the selection can be set from elsewhere - Home deep links
+     into `Use Soon`, for one - so the active pill is brought into view rather than
+     left off the right edge where it reads as "no filter applied". */
+  useEffect(() => {
+    const active = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')
+    active?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [value])
+
   return (
     <div
+      ref={listRef}
       role="tablist"
       aria-label={label}
+      onKeyDown={onKeyDown}
       className={cn('hide-scrollbar edge-fade -mx-5 flex gap-2 overflow-x-auto px-5', className)}
     >
       {options.map((option) => {
@@ -166,6 +218,7 @@ export function FilterPills<T extends string>({
             type="button"
             role="tab"
             aria-selected={active}
+            tabIndex={active ? 0 : -1}
             onClick={() => onChange(option)}
             className={cn(
               'h-9 shrink-0 rounded-full border px-3.5 text-[13px] font-semibold transition-all duration-200 active:scale-95',

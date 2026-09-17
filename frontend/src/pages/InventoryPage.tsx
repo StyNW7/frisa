@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   ArrowUpDown,
   Check,
+  FilterX,
   LayoutGrid,
   PackageOpen,
   Plus,
@@ -16,7 +17,7 @@ import { FilterPills } from '@/components/common/Primitives'
 import { FoodCard, FoodTile } from '@/components/inventory/FoodCard'
 import { EmptyState } from '@/components/common/Feedback'
 import { BottomSheet } from '@/components/common/BottomSheet'
-import { LinkButton } from '@/components/common/Button'
+import { Button, LinkButton } from '@/components/common/Button'
 import { StatusChip } from '@/components/common/Badges'
 import { useApp } from '@/hooks/useApp'
 import { cn, daysUntil, isPriority, pluralize, riskScore, rupiah } from '@/lib/utils'
@@ -186,10 +187,31 @@ export function InventoryPage() {
                   : 'Try another category, or add something new through the Scan tab.'
               }
               action={
-                <LinkButton to="/scan" size="md">
-                  <Plus className="h-4 w-4" strokeWidth={2.6} aria-hidden />
-                  Add food
-                </LinkButton>
+                /* A narrowed view is the usual reason nothing is showing, so the way
+                   back to the full inventory comes first. */
+                query || filter !== 'All' ? (
+                  <div className="flex flex-col items-center gap-2.5">
+                    <Button
+                      size="md"
+                      onClick={() => {
+                        setQuery('')
+                        setFilter('All')
+                      }}
+                    >
+                      <FilterX className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+                      Clear filters
+                    </Button>
+                    <LinkButton to="/scan" variant="ghost" size="sm">
+                      <Plus className="h-4 w-4" strokeWidth={2.6} aria-hidden />
+                      Add food instead
+                    </LinkButton>
+                  </div>
+                ) : (
+                  <LinkButton to="/scan" size="md">
+                    <Plus className="h-4 w-4" strokeWidth={2.6} aria-hidden />
+                    Add food
+                  </LinkButton>
+                )
               }
             />
           </div>

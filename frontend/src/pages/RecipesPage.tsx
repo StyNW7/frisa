@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ChefHat, Heart, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { PageHeader } from '@/components/common/TopHeader'
@@ -19,6 +19,18 @@ export function RecipesPage() {
 
   const focusId = params.get('focus')
   const focusItem = focusId ? items.find((i) => i.id === focusId) : undefined
+
+  /* Deep link from elsewhere in the app: /recipes?category=Favorites. */
+  useEffect(() => {
+    const incoming = params.get('category')
+    if (!incoming) return
+    if ((RECIPE_CATEGORIES as readonly string[]).includes(incoming)) {
+      setCategory(incoming as RecipeCategory)
+    }
+    const next = new URLSearchParams(params)
+    next.delete('category')
+    setParams(next, { replace: true })
+  }, [params, setParams])
 
   const derived = useMemo(() => sortRecommended(deriveRecipes(RECIPES, items)), [items])
 
