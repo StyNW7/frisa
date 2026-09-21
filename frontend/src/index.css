@@ -100,15 +100,164 @@
 @media (min-width: 900px) {
   body {
     background:
+      radial-gradient(900px 560px at 8% 0%, rgba(37, 184, 119, 0.16) 0%, rgba(37, 184, 119, 0) 60%),
+      radial-gradient(760px 520px at 96% 100%, rgba(252, 134, 18, 0.13) 0%, rgba(252, 134, 18, 0) 62%),
       radial-gradient(1100px 620px at 50% -8%, #eaf8f1 0%, rgba(234, 248, 241, 0) 62%),
-      linear-gradient(180deg, #f2f5f3 0%, #e9edea 100%);
+      linear-gradient(180deg, #f4f7f5 0%, #e9eeeb 100%);
   }
 
-  .app-frame {
-    @apply my-7 border border-line/80 shadow-device;
-    border-radius: var(--app-shell-radius);
-    height: min(884px, calc(100dvh - 56px));
+  /* A faint dot grid so the canvas reads as a stage rather than a blank page. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(24, 33, 28, 0.085) 1px, transparent 1.2px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%);
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%);
   }
+
+  /* The phone. Thin dark bezel with a hairline highlight, sitting on a soft
+     ground shadow, so the prototype reads as a device on a desk. */
+  .app-frame {
+    @apply my-10;
+    border-radius: var(--app-shell-radius);
+    height: min(884px, calc(100dvh - 80px));
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.55),
+      0 0 0 8px #1b2420,
+      0 0 0 9px #33403a,
+      0 34px 80px -28px rgba(13, 78, 52, 0.45),
+      0 8px 24px -8px rgba(24, 33, 28, 0.25);
+  }
+}
+
+/* The stage: the phone alone on a tablet-sized window, flanked by the pitch and the
+   character once there is room for all three. */
+.stage {
+  min-height: 100%;
+}
+
+.stage-panel {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .stage {
+    @apply flex items-center justify-center;
+  }
+}
+
+@media (min-width: 1180px) {
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 440px minmax(0, 1fr);
+    align-items: center;
+    column-gap: clamp(40px, 5vw, 88px);
+    padding: 0 clamp(24px, 4vw, 64px);
+  }
+
+  .stage-panel {
+    @apply flex w-full flex-col;
+    max-width: 400px;
+    padding: 0 12px;
+    animation: fade-up 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .stage-panel-left {
+    justify-self: end;
+  }
+
+  .stage-panel-right {
+    @apply items-center;
+    justify-self: start;
+    animation-delay: 120ms;
+  }
+
+  /* Short laptop viewports: the pitch tightens rather than scrolling the page. */
+  .stage-mascot {
+    height: clamp(280px, 48vh, 440px);
+  }
+
+  @media (max-height: 820px) {
+    .stage-features,
+    .stage-tagline {
+      display: none;
+    }
+    .stage-panel-left h2 {
+      font-size: 26px;
+    }
+    .stage-quote {
+      margin-top: 20px;
+    }
+  }
+}
+
+.stage-quote {
+  @apply relative overflow-hidden rounded-3xl p-5;
+  background:
+    radial-gradient(240px 160px at 100% 0%, rgba(74, 200, 148, 0.55) 0%, rgba(74, 200, 148, 0) 70%),
+    linear-gradient(135deg, #1ca167 0%, #168653 55%, #0d4e34 100%);
+  box-shadow: 0 18px 40px -22px rgba(13, 78, 52, 0.6);
+}
+
+.stage-quote::after {
+  content: '';
+  position: absolute;
+  right: -34px;
+  bottom: -46px;
+  width: 140px;
+  height: 140px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.stage-halo {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  width: 380px;
+  height: 380px;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(37, 184, 119, 0.22) 0%, rgba(37, 184, 119, 0.08) 42%, rgba(37, 184, 119, 0) 70%);
+  pointer-events: none;
+}
+
+.stage-bubble {
+  @apply relative max-w-[300px] rounded-3xl border border-line bg-white px-4 py-3 text-center shadow-lift;
+}
+
+.stage-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #fff;
+  border-right: 1px solid #e4eae6;
+  border-bottom: 1px solid #e4eae6;
+}
+
+.stage-ground {
+  width: 220px;
+  height: 22px;
+  margin-top: -6px;
+  border-radius: 9999px;
+  background: radial-gradient(ellipse at center, rgba(24, 33, 28, 0.16) 0%, rgba(24, 33, 28, 0) 70%);
+}
+
+.drop-shadow-mascot {
+  filter: drop-shadow(0 22px 26px rgba(13, 78, 52, 0.22));
+}
+
+/* Screens slide in as they mount. Fill mode `backwards` so nothing persists on
+   the page root once the animation ends. */
+.page-stage > * {
+  animation: page-in 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* Recharts polish */

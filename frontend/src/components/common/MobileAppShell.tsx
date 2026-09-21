@@ -47,7 +47,7 @@ export function MobileAppShell() {
     <div className="app-frame">
       <main
         ref={scrollRef}
-        className={cn('hide-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden')}
+        className={cn('page-stage hide-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden')}
       >
         <Outlet />
       </main>

@@ -3,6 +3,10 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      screens: {
+        /* Room for the pitch, the phone and the character side by side. */
+        stage: '1180px',
+      },
       colors: {
         frisa: {
           50: '#EAF8F1',
@@ -123,6 +127,18 @@ export default {
           '60%': { transform: 'scale(1.06)', opacity: '1' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-9px)' },
+        },
+        'bubble-in': {
+          '0%': { opacity: '0', transform: 'translateY(8px) scale(0.94)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'page-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 220ms ease-out both',
@@ -137,6 +153,8 @@ export default {
         'draw-in': 'draw-in 1.1s ease-out both',
         shake: 'shake 420ms cubic-bezier(0.36,0.07,0.19,0.97) both',
         'pop-in': 'pop-in 380ms cubic-bezier(0.22,1,0.36,1) both',
+        float: 'float 4.2s ease-in-out infinite',
+        'bubble-in': 'bubble-in 320ms cubic-bezier(0.22,1,0.36,1) both',
       },
     },
   },

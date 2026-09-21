@@ -34,6 +34,27 @@ On a phone the app fills the viewport. On a desktop it renders as a centred
 430–440 px device canvas — it is a mobile application that happens to be shown in a
 browser, not a shrunken desktop dashboard.
 
+### The desktop stage
+
+From 1180 px wide the space either side of the phone becomes the pitch
+(`src/components/common/DesktopStage.tsx`):
+
+- **Left** — the Frisa logo, a one-paragraph explanation of the product, the three
+  things it does, and the FRISA quote.
+- **Right** — the Frisa mascot, who changes pose and speech bubble with the screen
+  currently open in the phone (waving on Home, thinking on Inventory, megaphone on
+  Scan, jumping on Recipes, heart on Insights), surrounded by live numbers from the
+  same state the phone renders: items to use soon, food saved, CO₂ avoided, hub
+  status.
+
+Between 900 and 1180 px only the phone is shown; below 900 px the app is full-bleed.
+Short laptop viewports drop the feature list so the page never scrolls.
+
+The mascot and logo the app renders live in `public/Images/brand/` as transparent
+WebP cut-outs generated from the raw renders in `public/Images/` by
+`python scripts/cutout-brand.py` (dev-only; Pillow + NumPy + SciPy). Poses are
+registered in `src/components/common/Mascot.tsx`.
+
 ---
 
 ## Installing it as an app

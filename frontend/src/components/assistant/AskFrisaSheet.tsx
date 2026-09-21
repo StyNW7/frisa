@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Mic, Send, Sparkles, Square } from 'lucide-react'
 import { BottomSheet } from '@/components/common/BottomSheet'
-import { FrisaMark } from '@/components/common/FrisaMark'
+import { Mascot } from '@/components/common/Mascot'
 import { useApp, useUi } from '@/hooks/useApp'
 import { answerQuestion } from '@/lib/assistant'
 import { deriveRecipes, sortRecommended } from '@/lib/recipes'
@@ -146,7 +146,7 @@ export function AskFrisaSheet() {
         {assistantLog.length === 0 && !thinking ? (
           <div className="animate-fade-up rounded-3xl bg-frisa-50 p-4">
             <div className="flex items-start gap-3">
-              <FrisaMark className="h-10 w-10 shrink-0" />
+              <Mascot pose="speaker" className="-ml-1 -mt-1 h-[68px] w-auto shrink-0" />
               <div>
                 <p className="text-sm font-semibold leading-snug text-frisa-800">
                   I am watching {items.length} items in {activeFridge.name}.

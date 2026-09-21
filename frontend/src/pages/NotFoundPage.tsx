@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Compass } from 'lucide-react'
 import { PlainAppShell } from '@/components/common/MobileAppShell'
 import { Button } from '@/components/common/Button'
-import { FrisaMark } from '@/components/common/FrisaMark'
+import { Mascot } from '@/components/common/Mascot'
 
 export function NotFoundPage() {
   const navigate = useNavigate()
@@ -10,7 +10,7 @@ export function NotFoundPage() {
   return (
     <PlainAppShell>
       <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-        <FrisaMark className="h-16 w-16" />
+        <Mascot pose="think" className="h-40 w-auto animate-float drop-shadow-mascot" />
         <h1 className="mt-6 text-[26px] font-extrabold leading-tight tracking-tight text-ink">
           This shelf is empty
         </h1>

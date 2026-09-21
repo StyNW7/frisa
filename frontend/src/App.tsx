@@ -4,6 +4,7 @@ import { AppProvider } from '@/store/AppContext'
 import { ToastProvider } from '@/store/ToastContext'
 import { UiProvider } from '@/store/UiContext'
 import { MobileAppShell } from '@/components/common/MobileAppShell'
+import { DesktopStage } from '@/components/common/DesktopStage'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { useApp } from '@/hooks/useApp'
 
@@ -56,6 +57,7 @@ export default function App() {
       <AppProvider>
         <ToastProvider>
           <UiProvider>
+            <DesktopStage>
             <Routes>
               <Route path="/" element={<SplashPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
@@ -91,6 +93,7 @@ export default function App() {
 
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
+            </DesktopStage>
           </UiProvider>
         </ToastProvider>
       </AppProvider>

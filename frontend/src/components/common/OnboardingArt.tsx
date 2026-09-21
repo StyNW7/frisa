@@ -11,6 +11,7 @@ import {
   Wifi,
 } from 'lucide-react'
 import { FrisaMark } from '@/components/common/FrisaMark'
+import { Mascot } from '@/components/common/Mascot'
 import { cn } from '@/lib/utils'
 
 function Stage({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -78,30 +79,16 @@ function Floating({
 function ArtConnected() {
   return (
     <Stage>
-      <div className="absolute inset-0 flex items-center justify-center gap-9">
-        <div className="relative">
-          <FridgeBody />
-          <div className="absolute -top-7 left-1/2 -translate-x-1/2 rounded-2xl bg-frisa-500 p-1.5 shadow-pill">
-            <FrisaMark className="h-8 w-8" tone="white" />
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center gap-1.5">
-          <Wifi className="h-5 w-5 text-frisa-400" strokeWidth={2.2} />
-          <span className="h-px w-12 bg-gradient-to-r from-frisa-200 via-frisa-400 to-frisa-200" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-frisa-600">Synced</span>
-        </div>
-
-        <div className="relative flex h-[142px] w-[78px] flex-col items-center rounded-[18px] border-4 border-ink bg-white p-2 shadow-card">
-          <span className="mb-2 h-1 w-6 rounded-full bg-ink/20" />
-          <Smartphone className="h-4 w-4 text-frisa-500" strokeWidth={2} />
-          <div className="mt-2 w-full space-y-1.5">
-            <span className="block h-2 w-full rounded-full bg-frisa-100" />
-            <span className="block h-2 w-4/5 rounded-full bg-mist" />
-            <span className="block h-2 w-3/5 rounded-full bg-mist" />
-          </div>
-        </div>
+      <div className="pointer-events-none absolute left-1/2 top-[54%] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full bg-frisa-100/70 blur-2xl" />
+      <div className="absolute inset-x-0 bottom-0 flex h-[232px] animate-float items-end justify-center pl-16">
+        <Mascot pose="hi" priority className="h-[214px] w-auto drop-shadow-mascot" />
       </div>
+      <div className="absolute left-4 top-5 z-10 animate-bubble-in rounded-2xl rounded-bl-md bg-white px-3 py-2 shadow-card">
+        <span className="text-[12px] font-bold text-ink">Hello! I&apos;m Frisa</span>
+        <span className="block text-[10px] font-semibold text-ink-muted">Your fridge&apos;s smart assistant</span>
+      </div>
+      <Floating className="right-4 top-[38%]" icon={Wifi} label="Connected" />
+      <Floating className="bottom-6 right-6" icon={Smartphone} label="Paired" tone="plain" />
     </Stage>
   )
 }

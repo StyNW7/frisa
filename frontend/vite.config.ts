@@ -61,9 +61,10 @@ export default defineConfig({
 
       workbox: {
         /* Everything the app shell needs, so it opens offline after the first visit. */
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
-        /* Unused leftovers from the starter template - kept on disk, not shipped offline. */
-        globIgnores: ['vite.svg', 'Images/**'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,webmanifest}'],
+        /* The raw mascot renders are multi-megabyte source files; only the cut-out
+           `Images/brand/` set the app actually renders is shipped offline. */
+        globIgnores: ['vite.svg', 'Images/*.png'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
