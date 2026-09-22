@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeftRight,
+  Bluetooth,
   Cpu,
   Lock,
   PackageOpen,
@@ -48,8 +49,8 @@ export function FridgesPage() {
                   {pluralize(unpaired.length, 'FRISA hub')} nearby, not yet paired
                 </h2>
                 <p className="mt-1 text-[13px] leading-snug text-ember-800/80">
-                  Being on the same Wi-Fi is not enough. Each hub stays locked until you enter its pairing
-                  password on this phone.
+                  Put the hub in pairing mode and FRISA walks you through Bluetooth, Wi-Fi and the pairing
+                  password. Until then it stays locked.
                 </p>
               </div>
             </div>
@@ -137,11 +138,12 @@ export function FridgesPage() {
               {locked ? (
                 <div className="border-t border-line p-4">
                   <p className="text-[13px] leading-relaxed text-ink-muted">
-                    Contents, temperature and activity stay hidden until this hub trusts your phone.
+                    Contents, temperature and activity stay hidden until this hub trusts your phone. Setup takes
+                    about a minute.
                   </p>
                   <Button size="md" block className="mt-3.5" onClick={() => setPairingTarget(fridge.id)}>
-                    <Lock className="h-4 w-4" strokeWidth={2.2} aria-hidden />
-                    Enter pairing password
+                    <Bluetooth className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+                    Set up this hub
                   </Button>
                 </div>
               ) : (
@@ -220,7 +222,8 @@ export function FridgesPage() {
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" strokeWidth={2.2} aria-hidden />
           <p className="text-2xs leading-relaxed text-ink-muted">
             Each hub keeps its own inventory and its own pairing password, so remote monitoring never means an
-            open door. Pair once per phone; revoke it any time from device settings.
+            open door. Bluetooth is used only during setup; after that the hub talks over Wi-Fi. Pair once per
+            phone; revoke it any time from device settings.
           </p>
         </div>
       </div>
@@ -231,7 +234,7 @@ export function FridgesPage() {
         onClose={() => setPairingTarget(null)}
         onPaired={(fridge) => {
           setActiveFridge(fridge.id)
-          toast(`${fridge.name} paired`, { description: 'This phone is now authorised for that hub.' })
+          toast(`${fridge.name} paired`, { description: 'Connected, synced and now the active fridge.' })
         }}
       />
 

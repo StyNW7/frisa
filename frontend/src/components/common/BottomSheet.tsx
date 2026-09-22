@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button, type ButtonVariant } from '@/components/common/Button'
@@ -71,6 +72,14 @@ export function BottomSheet({
      animation, so what is rendered is tracked separately. */
   const [render, setRender] = useState(open)
   const [leaving, setLeaving] = useState(false)
+  /* Sheets are declared wherever is convenient, often deep inside a scrolled page.
+     They are drawn against the device frame itself, so a scrolled page can never
+     carry the sheet out of view. Resolved after mount: on first render the frame
+     may not be in the document yet. */
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setHost(document.querySelector<HTMLElement>('.app-frame'))
+  }, [])
   const [drag, setDrag] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [flingOut, setFlingOut] = useState(false)
@@ -223,7 +232,7 @@ export function BottomSheet({
 
   if (!render) return null
 
-  return (
+  const sheet = (
     <div className="absolute inset-0 z-50 flex flex-col justify-end">
       <button
         type="button"
@@ -313,6 +322,8 @@ export function BottomSheet({
       </div>
     </div>
   )
+
+  return host ? createPortal(sheet, host) : sheet
 }
 
 export interface ConfirmationSheetProps {

@@ -1,36 +1,43 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
+  Bluetooth,
   Check,
   CircleCheck,
+  KeyRound,
   Lock,
   Minus,
   Plus,
-  Radar,
+  Power,
   Refrigerator,
-  ShieldCheck,
   TriangleAlert,
   Users,
   Utensils,
+  Wifi,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { PlainAppShell } from '@/components/common/MobileAppShell'
 import { FrisaMark } from '@/components/common/FrisaMark'
 import { StatusChip } from '@/components/common/Badges'
-import {
-  ALLERGY_OPTIONS,
-  CUISINE_OPTIONS,
-  DIET_OPTIONS,
-  RECIPE_PREF_OPTIONS,
-} from '@/data/seed'
-import { PairingSheet } from '@/components/device/PairingSheet'
+import { ALLERGY_OPTIONS, CUISINE_OPTIONS, DIET_OPTIONS, RECIPE_PREF_OPTIONS } from '@/data/seed'
+import { PairingFlow } from '@/components/device/PairingFlow'
 import { useApp, useToast } from '@/hooks/useApp'
 import { passwordAccepted, passwordRules, passwordStrength } from '@/lib/pairing'
 import { cn } from '@/lib/utils'
 
 const STEPS = ['Fridge', 'Device', 'Household', 'Food'] as const
+const STEP_TITLES = ['Name your fridge', 'Connect your FRISA Hub', 'Your household', 'Food preferences'] as const
+
+/* What the hub went through, replayed on the device step once it is connected. */
+const HUB_JOURNEY = [
+  { icon: Power, label: 'Hub powered on in pairing mode' },
+  { icon: Bluetooth, label: 'Found and linked over Bluetooth' },
+  { icon: Wifi, label: 'Joined your Wi-Fi network' },
+  { icon: KeyRound, label: 'Pairing password verified on the device' },
+  { icon: CircleCheck, label: 'Inventory synchronised' },
+] as const
 
 const STRENGTH_META = {
   weak: { label: 'Weak', bar: 'bg-danger-500', text: 'text-danger-600' },
@@ -92,24 +99,15 @@ export function SetupPage() {
   const [recipePrefs, setRecipePrefs] = useState<string[]>(['High Protein'])
   const [done, setDone] = useState(false)
 
-  /* Device pairing */
-  const [scanning, setScanning] = useState(true)
-  const [pairingOpen, setPairingOpen] = useState(false)
+  /* Device pairing. The hub is "ready" only once the flow's first sync has landed,
+     not the moment the password is accepted, so the sync step is never cut short. */
+  const [hubReady, setHubReady] = useState(homeHub.paired)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [skipPasswordChange, setSkipPasswordChange] = useState(false)
 
-  /* Discovery runs whenever the user arrives at the device step. */
-  useEffect(() => {
-    if (step !== 1) return
-    if (homeHub.paired) {
-      setScanning(false)
-      return
-    }
-    setScanning(true)
-    const timer = window.setTimeout(() => setScanning(false), 1300)
-    return () => window.clearTimeout(timer)
-  }, [step, homeHub.paired])
+  /* Pairing owns the device step: it needs the scroll area and the bottom bar. */
+  const pairing = step === 1 && !hubReady
 
   const toggle = (list: string[], setList: (next: string[]) => void) => (value: string) =>
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
@@ -117,17 +115,19 @@ export function SetupPage() {
   const canContinue = useMemo(() => {
     if (step === 0) return fridgeName.trim().length > 1
     if (step === 1) {
-      if (!homeHub.paired) return false
+      if (!hubReady) return false
       if (skipPasswordChange || !newPassword) return true
       return passwordAccepted(newPassword, homeHub.security.factoryPassword) && newPassword === confirmPassword
     }
     if (step === 2) return household.trim().length > 1
     return true
-  }, [step, fridgeName, household, homeHub, skipPasswordChange, newPassword, confirmPassword])
+  }, [step, fridgeName, household, homeHub, hubReady, skipPasswordChange, newPassword, confirmPassword])
 
   const finish = () => {
     const chosenPassword =
-      !skipPasswordChange && passwordAccepted(newPassword, homeHub.security.factoryPassword) && newPassword === confirmPassword
+      !skipPasswordChange &&
+      passwordAccepted(newPassword, homeHub.security.factoryPassword) &&
+      newPassword === confirmPassword
         ? newPassword
         : undefined
 
@@ -185,7 +185,9 @@ export function SetupPage() {
               block
               className="bg-white text-frisa-700 shadow-none hover:bg-white/90"
               onClick={() => {
-                toast('Welcome to FRISA', { description: 'Your fridge is being monitored in real time.' })
+                toast('Welcome to FRISA', {
+                  description: 'Your fridge is being monitored in real time.',
+                })
                 navigate('/home', { replace: true })
               }}
             >
@@ -218,9 +220,7 @@ export function SetupPage() {
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-frisa-600">
                 Step {step + 1} of {STEPS.length}
               </p>
-              <h1 className="text-lg font-extrabold leading-tight tracking-tight text-ink">
-                Let&apos;s set up your FRISA
-              </h1>
+              <h1 className="text-lg font-extrabold leading-tight tracking-tight text-ink">{STEP_TITLES[step]}</h1>
             </div>
           </div>
 
@@ -237,114 +237,115 @@ export function SetupPage() {
           </div>
         </header>
 
-        <div className="hide-scrollbar flex-1 overflow-y-auto px-5 pb-4">
-          {step === 0 ? (
-            <section key="s0" className="animate-fade-up space-y-5 pt-2">
-              <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
-                <Refrigerator className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
-                <p className="text-[13px] leading-relaxed text-frisa-800">
-                  Give this refrigerator a name. You can connect more fridges later and switch between them at any
-                  time.
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="fridge-name" className="mb-2 block text-[13px] font-bold text-ink">
-                  Fridge name
-                </label>
-                <input
-                  id="fridge-name"
-                  value={fridgeName}
-                  onChange={(event) => setFridgeName(event.target.value)}
-                  className="h-14 w-full rounded-2xl border border-line bg-mist/50 px-4 text-[15px] font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
-                  placeholder="Home Fridge"
-                />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {['Home Fridge', 'Kitchen Fridge', 'Apartment Fridge'].map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => setFridgeName(suggestion)}
-                      className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:border-frisa-200 hover:text-frisa-700"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          {step === 1 ? (
-            <section key="s1" className="animate-fade-up space-y-4 pt-2">
-              {/* Discovered device */}
-              <div className="relative overflow-hidden rounded-[28px] border border-line bg-gradient-to-b from-frisa-50 to-white p-6">
-                <div className="flex flex-col items-center">
-                  <span className="relative mb-5 flex h-24 w-24 items-center justify-center rounded-[28px] bg-white shadow-card">
-                    {scanning || !homeHub.paired ? (
-                      <>
-                        <span className="absolute inset-0 animate-pulse-ring rounded-[28px] bg-frisa-200" aria-hidden />
-                        <span
-                          className="absolute inset-0 animate-pulse-ring rounded-[28px] bg-frisa-200"
-                          style={{ animationDelay: '700ms' }}
-                          aria-hidden
-                        />
-                      </>
-                    ) : null}
-                    <FrisaMark className="relative h-14 w-14" />
-                  </span>
-
-                  <p className="text-sm font-bold text-ink">FRISA Hub</p>
-                  <p className="num mt-0.5 text-xs font-semibold text-ink-muted">{homeHub.deviceId}</p>
-
-                  <div className="mt-4">
-                    {scanning ? (
-                      <StatusChip tone="neutral" icon={Radar}>
-                        Searching for nearby hubs
-                      </StatusChip>
-                    ) : homeHub.paired ? (
-                      <StatusChip tone="green" icon={CircleCheck}>
-                        Paired securely
-                      </StatusChip>
-                    ) : (
-                      <StatusChip tone="orange" icon={Lock}>
-                        Locked - password required
-                      </StatusChip>
-                    )}
+        {pairing ? (
+          <PairingFlow
+            fridge={homeHub}
+            doneLabel="Continue"
+            onComplete={(fridge) =>
+              toast(`${fridge.deviceId} is connected`, {
+                description: 'Next, replace the factory password so only your household can connect.',
+              })
+            }
+            onDone={() => setHubReady(true)}
+          >
+            {(flow) => (
+              <>
+                <div className="hide-scrollbar flex-1 overflow-y-auto px-5 pb-4">
+                  <div className="space-y-5 pt-1">
+                    {flow.stepper}
+                    <div>
+                      <h2 className="text-[17px] font-bold leading-tight tracking-tight text-ink">{flow.title}</h2>
+                      <p className="mt-1 text-[13px] leading-snug text-ink-muted">{flow.description}</p>
+                    </div>
+                    {flow.body}
                   </div>
                 </div>
-              </div>
-
-              {/* Pair, or confirm the pairing */}
-              {!homeHub.paired ? (
-                <>
+                <div className="shrink-0 border-t border-line bg-surface px-5 pb-7 pt-4">{flow.footer}</div>
+              </>
+            )}
+          </PairingFlow>
+        ) : (
+          <>
+            <div className="hide-scrollbar flex-1 overflow-y-auto px-5 pb-4">
+              {step === 0 ? (
+                <section key="s0" className="animate-fade-up space-y-5 pt-2">
                   <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
-                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
+                    <Refrigerator className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
                     <p className="text-[13px] leading-relaxed text-frisa-800">
-                      Anyone in Wi-Fi range can see this hub, so it will not share anything until you prove it is
-                      yours. Enter the password printed on its label.
+                      Give this refrigerator a name. You can connect more fridges later and switch between them at any
+                      time.
                     </p>
                   </div>
 
-                  <Button size="lg" block disabled={scanning} onClick={() => setPairingOpen(true)}>
-                    <Lock className="h-[18px] w-[18px]" strokeWidth={2.1} aria-hidden />
-                    {scanning ? 'Searching...' : 'Enter pairing password'}
-                  </Button>
-                </>
-              ) : (
-                <>
+                  <div>
+                    <label htmlFor="fridge-name" className="mb-2 block text-[13px] font-bold text-ink">
+                      Fridge name
+                    </label>
+                    <input
+                      id="fridge-name"
+                      value={fridgeName}
+                      onChange={(event) => setFridgeName(event.target.value)}
+                      className="h-14 w-full rounded-2xl border border-line bg-mist/50 px-4 text-[15px] font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
+                      placeholder="Home Fridge"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {['Home Fridge', 'Kitchen Fridge', 'Apartment Fridge'].map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => setFridgeName(suggestion)}
+                          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:border-frisa-200 hover:text-frisa-700"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              ) : null}
+
+              {step === 1 ? (
+                <section key="s1" className="animate-fade-up space-y-4 pt-2">
+                  {/* The hub, now connected */}
+                  <div className="relative overflow-hidden rounded-[28px] border border-line bg-gradient-to-b from-frisa-50 to-white p-6">
+                    <div className="flex flex-col items-center">
+                      <div className="relative mb-5">
+                        <span className="flex h-24 w-24 items-center justify-center rounded-[28px] bg-white shadow-card ring-1 ring-line">
+                          <FrisaMark className="h-14 w-14" />
+                        </span>
+                        <span
+                          className="absolute -bottom-1.5 -right-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-card ring-1 ring-line"
+                          aria-hidden
+                        >
+                          <span className="h-3 w-3 rounded-full bg-frisa-500 shadow-[0_0_0_4px_rgba(37,184,119,0.18)]" />
+                        </span>
+                      </div>
+
+                      <p className="text-sm font-bold text-ink">FRISA Hub</p>
+                      <p className="num mt-0.5 text-xs font-semibold text-ink-muted">{homeHub.deviceId}</p>
+
+                      <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                        <StatusChip tone="green" icon={CircleCheck}>
+                          Paired securely
+                        </StatusChip>
+                        <StatusChip tone="green" icon={Wifi}>
+                          {homeHub.wifi}
+                        </StatusChip>
+                      </div>
+                    </div>
+                  </div>
+
                   <ol className="space-y-2.5">
-                    {['Hub discovered on your network', 'Password verified on the device', 'Inventory synchronised'].map(
-                      (label, i) => (
-                        <li key={label} className="flex items-center gap-3">
-                          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-frisa-500 text-white">
-                            <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
-                          </span>
-                          <span className="text-[13px] font-semibold text-ink">{label}</span>
-                          <span className="sr-only">step {i + 1} complete</span>
-                        </li>
-                      ),
-                    )}
+                    {HUB_JOURNEY.map(({ icon: Icon, label }, i) => (
+                      <li key={label} className="flex items-center gap-3">
+                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-frisa-500 text-white">
+                          <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
+                        </span>
+                        <Icon className="h-4 w-4 shrink-0 text-frisa-600" strokeWidth={2.2} aria-hidden />
+                        <span className="text-[13px] font-semibold text-ink">{label}</span>
+                        <span className="sr-only">step {i + 1} complete</span>
+                      </li>
+                    ))}
                   </ol>
 
                   {/* Replace the factory password */}
@@ -369,9 +370,7 @@ export function SetupPage() {
                         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mist text-ink-soft">
                           <Lock className="h-4 w-4" strokeWidth={2.1} aria-hidden />
                         </span>
-                        <span className="text-[13px] font-semibold text-ink">
-                          Set a password now after all
-                        </span>
+                        <span className="text-[13px] font-semibold text-ink">Set a password now after all</span>
                       </button>
                     ) : (
                       <div className="space-y-3.5 p-4">
@@ -444,7 +443,10 @@ export function SetupPage() {
                         </ul>
 
                         <div>
-                          <label htmlFor="setup-confirm-password" className="mb-1.5 block text-[13px] font-bold text-ink">
+                          <label
+                            htmlFor="setup-confirm-password"
+                            className="mb-1.5 block text-[13px] font-bold text-ink"
+                          >
                             Confirm password
                           </label>
                           <input
@@ -485,135 +487,128 @@ export function SetupPage() {
                       </div>
                     )}
                   </div>
-                </>
-              )}
-            </section>
-          ) : null}
+                </section>
+              ) : null}
 
-          {step === 2 ? (
-            <section key="s2" className="animate-fade-up space-y-5 pt-2">
-              <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
-                <Users className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
-                <p className="text-[13px] leading-relaxed text-frisa-800">
-                  Household size helps FRISA estimate how quickly food is normally consumed.
-                </p>
-              </div>
+              {step === 2 ? (
+                <section key="s2" className="animate-fade-up space-y-5 pt-2">
+                  <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
+                    <Users className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
+                    <p className="text-[13px] leading-relaxed text-frisa-800">
+                      Household size helps FRISA estimate how quickly food is normally consumed.
+                    </p>
+                  </div>
 
-              <div>
-                <label htmlFor="household" className="mb-2 block text-[13px] font-bold text-ink">
-                  Household name
-                </label>
-                <input
-                  id="household"
-                  value={household}
-                  onChange={(event) => setHousehold(event.target.value)}
-                  className="h-14 w-full rounded-2xl border border-line bg-mist/50 px-4 text-[15px] font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
-                />
-              </div>
+                  <div>
+                    <label htmlFor="household" className="mb-2 block text-[13px] font-bold text-ink">
+                      Household name
+                    </label>
+                    <input
+                      id="household"
+                      value={household}
+                      onChange={(event) => setHousehold(event.target.value)}
+                      className="h-14 w-full rounded-2xl border border-line bg-mist/50 px-4 text-[15px] font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
+                    />
+                  </div>
 
-              <div>
-                <p className="mb-2 text-[13px] font-bold text-ink">Members</p>
-                <div className="flex items-center justify-between rounded-2xl border border-line bg-mist/50 p-2.5">
-                  <button
-                    type="button"
-                    aria-label="Remove one member"
-                    onClick={() => setMembers((m) => Math.max(1, m - 1))}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-ink shadow-card transition-transform active:scale-95"
-                  >
-                    <Minus className="h-4 w-4" strokeWidth={2.4} />
-                  </button>
-                  <span className="num text-2xl font-extrabold text-ink">{members}</span>
-                  <button
-                    type="button"
-                    aria-label="Add one member"
-                    onClick={() => setMembers((m) => Math.min(12, m + 1))}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-ink shadow-card transition-transform active:scale-95"
-                  >
-                    <Plus className="h-4 w-4" strokeWidth={2.4} />
-                  </button>
-                </div>
-              </div>
-            </section>
-          ) : null}
+                  <div>
+                    <p className="mb-2 text-[13px] font-bold text-ink">Members</p>
+                    <div className="flex items-center justify-between rounded-2xl border border-line bg-mist/50 p-2.5">
+                      <button
+                        type="button"
+                        aria-label="Remove one member"
+                        onClick={() => setMembers((m) => Math.max(1, m - 1))}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-ink shadow-card transition-transform active:scale-95"
+                      >
+                        <Minus className="h-4 w-4" strokeWidth={2.4} />
+                      </button>
+                      <span className="num text-2xl font-extrabold text-ink">{members}</span>
+                      <button
+                        type="button"
+                        aria-label="Add one member"
+                        onClick={() => setMembers((m) => Math.min(12, m + 1))}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-ink shadow-card transition-transform active:scale-95"
+                      >
+                        <Plus className="h-4 w-4" strokeWidth={2.4} />
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
 
-          {step === 3 ? (
-            <section key="s3" className="animate-fade-up space-y-6 pt-2">
-              <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
-                <Utensils className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
-                <p className="text-[13px] leading-relaxed text-frisa-800">
-                  FRISA filters every recipe suggestion against these preferences.
-                </p>
-              </div>
+              {step === 3 ? (
+                <section key="s3" className="animate-fade-up space-y-6 pt-2">
+                  <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
+                    <Utensils className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
+                    <p className="text-[13px] leading-relaxed text-frisa-800">
+                      FRISA filters every recipe suggestion against these preferences.
+                    </p>
+                  </div>
 
-              <div>
-                <p className="mb-2.5 text-[13px] font-bold text-ink">Diet</p>
-                <div className="flex flex-wrap gap-2">
-                  {DIET_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      aria-pressed={diet === option}
-                      onClick={() => setDiet(option)}
-                      className={cn(
-                        'rounded-2xl border px-3.5 py-2.5 text-[13px] font-semibold transition-all duration-200 active:scale-95',
-                        diet === option
-                          ? 'border-frisa-500 bg-frisa-50 text-frisa-700'
-                          : 'border-line bg-surface text-ink-muted hover:border-frisa-200',
-                      )}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  <div>
+                    <p className="mb-2.5 text-[13px] font-bold text-ink">Diet</p>
+                    <div className="flex flex-wrap gap-2">
+                      {DIET_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          aria-pressed={diet === option}
+                          onClick={() => setDiet(option)}
+                          className={cn(
+                            'rounded-2xl border px-3.5 py-2.5 text-[13px] font-semibold transition-all duration-200 active:scale-95',
+                            diet === option
+                              ? 'border-frisa-500 bg-frisa-50 text-frisa-700'
+                              : 'border-line bg-surface text-ink-muted hover:border-frisa-200',
+                          )}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div>
-                <p className="mb-2.5 text-[13px] font-bold text-ink">Allergies</p>
-                <ChipSelect options={ALLERGY_OPTIONS} selected={allergies} onToggle={toggle(allergies, setAllergies)} />
-              </div>
+                  <div>
+                    <p className="mb-2.5 text-[13px] font-bold text-ink">Allergies</p>
+                    <ChipSelect
+                      options={ALLERGY_OPTIONS}
+                      selected={allergies}
+                      onToggle={toggle(allergies, setAllergies)}
+                    />
+                  </div>
 
-              <div>
-                <p className="mb-2.5 text-[13px] font-bold text-ink">Favourite cuisines</p>
-                <ChipSelect options={CUISINE_OPTIONS} selected={cuisines} onToggle={toggle(cuisines, setCuisines)} />
-              </div>
+                  <div>
+                    <p className="mb-2.5 text-[13px] font-bold text-ink">Favourite cuisines</p>
+                    <ChipSelect
+                      options={CUISINE_OPTIONS}
+                      selected={cuisines}
+                      onToggle={toggle(cuisines, setCuisines)}
+                    />
+                  </div>
 
-              <div>
-                <p className="mb-2.5 text-[13px] font-bold text-ink">Recipe preferences</p>
-                <ChipSelect
-                  options={RECIPE_PREF_OPTIONS}
-                  selected={recipePrefs}
-                  onToggle={toggle(recipePrefs, setRecipePrefs)}
-                />
-              </div>
-            </section>
-          ) : null}
-        </div>
+                  <div>
+                    <p className="mb-2.5 text-[13px] font-bold text-ink">Recipe preferences</p>
+                    <ChipSelect
+                      options={RECIPE_PREF_OPTIONS}
+                      selected={recipePrefs}
+                      onToggle={toggle(recipePrefs, setRecipePrefs)}
+                    />
+                  </div>
+                </section>
+              ) : null}
+            </div>
 
-        <PairingSheet
-          open={pairingOpen}
-          fridgeId="home"
-          onClose={() => setPairingOpen(false)}
-          onPaired={(fridge) =>
-            toast(`${fridge.deviceId} paired`, {
-              description: 'Now replace the factory password so only your household can connect.',
-            })
-          }
-        />
-
-        <div className="shrink-0 border-t border-line bg-surface px-5 pb-7 pt-4">
-          <Button
-            size="lg"
-            block
-            disabled={!canContinue}
-            onClick={() => (step === STEPS.length - 1 ? finish() : setStep((s) => s + 1))}
-          >
-            {step === STEPS.length - 1
-              ? 'Finish setup'
-              : step === 1 && !homeHub.paired
-                ? 'Connect your hub to continue'
-                : 'Continue'}
-          </Button>
-        </div>
+            <div className="shrink-0 border-t border-line bg-surface px-5 pb-7 pt-4">
+              <Button
+                size="lg"
+                block
+                disabled={!canContinue}
+                onClick={() => (step === STEPS.length - 1 ? finish() : setStep((s) => s + 1))}
+              >
+                {step === STEPS.length - 1 ? 'Finish setup' : 'Continue'}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </PlainAppShell>
   )

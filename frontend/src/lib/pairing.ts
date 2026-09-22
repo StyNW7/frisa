@@ -28,6 +28,61 @@ export function createSecurity(factoryPassword: string, options: Partial<DeviceS
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Setup flow                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The five stages a hub goes through from the box to the app. Bluetooth is only
+ * used to find the hub and hand it Wi-Fi credentials; everything after that runs
+ * over the home network.
+ */
+export const PAIRING_STAGES = [
+  { id: 'power', label: 'Power on' },
+  { id: 'search', label: 'Search' },
+  { id: 'wifi', label: 'Wi-Fi' },
+  { id: 'password', label: 'Password' },
+  { id: 'synced', label: 'Synced' },
+] as const
+
+export type PairingStageId = (typeof PAIRING_STAGES)[number]['id']
+
+/** WPA2 will not accept anything shorter. */
+export const MIN_WIFI_PASSWORD_LENGTH = 8
+
+export interface WifiNetwork {
+  ssid: string
+  /** 1 = weak, 3 = strong. */
+  strength: 1 | 2 | 3
+  secured: boolean
+  band: '2.4 GHz' | '5 GHz'
+}
+
+/** The hub's radio only does 2.4 GHz, like most small IoT modules. */
+export function hubSupportsNetwork(network: WifiNetwork): boolean {
+  return network.band === '2.4 GHz'
+}
+
+/**
+ * What the hub reports back over Bluetooth when asked to scan for networks.
+ * The household's own network is always the strongest, since the hub sits in
+ * the kitchen; the rest are the usual neighbours.
+ */
+export function nearbyNetworks(fridge: Pick<Fridge, 'wifi'>): WifiNetwork[] {
+  return [
+    { ssid: fridge.wifi, strength: 3, secured: true, band: '2.4 GHz' },
+    { ssid: `${fridge.wifi} 5G`, strength: 3, secured: true, band: '5 GHz' },
+    { ssid: 'IndiHome-5F2A', strength: 2, secured: true, band: '2.4 GHz' },
+    { ssid: 'Tetangga_2.4G', strength: 1, secured: true, band: '2.4 GHz' },
+    { ssid: 'Warkop Free WiFi', strength: 1, secured: false, band: '2.4 GHz' },
+  ]
+}
+
+export function wifiPasswordAccepted(network: WifiNetwork, password: string): boolean {
+  if (!network.secured) return true
+  return password.length >= MIN_WIFI_PASSWORD_LENGTH
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Lockout                                                                    */
 /* -------------------------------------------------------------------------- */
 

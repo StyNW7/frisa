@@ -139,6 +139,18 @@ export default {
           from: { opacity: '0', transform: 'translateY(6px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        /* The hub's status light while it waits to be paired. */
+        'led-blink': {
+          '0%, 100%': { opacity: '1', boxShadow: '0 0 0 0 rgba(252,134,18,0.55)' },
+          '50%': { opacity: '0.3', boxShadow: '0 0 0 7px rgba(252,134,18,0)' },
+        },
+        /* A packet travelling along the link between two devices. */
+        'link-travel': {
+          '0%': { left: '0%', opacity: '0' },
+          '12%': { opacity: '1' },
+          '88%': { opacity: '1' },
+          '100%': { left: '100%', opacity: '0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 220ms ease-out both',
@@ -155,6 +167,8 @@ export default {
         'pop-in': 'pop-in 380ms cubic-bezier(0.22,1,0.36,1) both',
         float: 'float 4.2s ease-in-out infinite',
         'bubble-in': 'bubble-in 320ms cubic-bezier(0.22,1,0.36,1) both',
+        'led-blink': 'led-blink 1.4s ease-in-out infinite',
+        'link-travel': 'link-travel 1.5s ease-in-out infinite',
       },
     },
   },

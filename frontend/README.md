@@ -116,15 +116,21 @@ All three genuinely mutate shared state. Nothing is faked between screens.
 7. **Insights** shows the money-saved figure and the trend chart moved, with a
    *"+RpXX since you opened the app"* badge.
 
-### Flow B — pairing a hub securely
+### Flow B — setting up a hub, end to end
 
 1. **Fridges** shows the Apartment hub as **Not paired**. Its contents, temperature
    and value are all hidden.
-2. Tap **Enter pairing password** and type something wrong: the field shakes and the
-   attempt budget drops. Five wrong tries and the hub pauses for a minute.
-3. Enter `FRISA-1156` from the device label. The hub verifies it, issues a pairing
-   token, and the fridge unlocks.
-4. **Device — Pairing security** then warns that the hub is still on its factory
+2. Tap **Set up this hub**. The five-step setup opens: **Power on** (the hub's light
+   blinks orange in pairing mode) → **Search** (the phone finds `FRISA-HUB-0233`
+   over Bluetooth and links to it) → **Wi-Fi** (the hub reports the networks it can
+   see; pick one and hand it the password over the Bluetooth link) → **Password** →
+   **Synced**.
+3. On the password step, type something wrong: the field shakes and the attempt
+   budget drops. Five wrong tries and the hub pauses for a minute.
+4. Enter `FRISA-1156` from the device label. The hub verifies it, issues a pairing
+   token, runs its first sync (clock, camera calibration, inventory) and the fridge
+   unlocks.
+5. **Device — Pairing security** then warns that the hub is still on its factory
    password. Change it, and the printed password stops working.
 
 ### Flow C — adding food through the IoT hub
@@ -144,14 +150,24 @@ matching the real FRISA workflow rather than pretending the AI is infallible.
 
 ## Device pairing
 
-A hub on your Wi-Fi is visible to everyone in range, so being on the network is not
-the same as being allowed in. Every FRISA hub has a **device ID** and a **pairing
-password**, and it shares nothing until a phone proves it knows that password.
+Setting up a hub mirrors the real product: Bluetooth is used only to find the hub and
+hand it Wi-Fi credentials; everything after that runs over the home network. A hub on
+your Wi-Fi is visible to everyone in range, so being on the network is not the same as
+being allowed in. Every FRISA hub has a **device ID** and a **pairing password**, and
+it shares nothing until a phone proves it knows that password.
 
 ```
-Hub discovered  →  enter pairing password  →  hub issues a pairing token
-                                           →  owner replaces the factory password
+1. Power on   hub enters pairing mode (status light blinks orange)
+2. Search     app finds the hub over Bluetooth and opens a setup channel
+3. Wi-Fi      hub scans networks; the app sends the chosen SSID + password over BLE
+4. Password   pairing password verified on the hub  →  hub issues a pairing token
+5. Synced     first sync: clock, camera calibration, inventory
+                                                    →  owner replaces the factory password
 ```
+
+The same flow runs inline during onboarding and as a bottom sheet from **Fridges** or
+the fridge switcher (`src/components/device/PairingFlow.tsx`). The hub's radio is
+2.4 GHz only, so 5 GHz networks are listed but cannot be chosen.
 
 **Demo credentials** — printed on the label under each hub, and shown in the app on
 the dashed "device label" card with a reveal toggle:
@@ -255,7 +271,7 @@ src/
                  ErrorBoundary
     home/        HomeHeader, StatusHeroCard, PriorityRail, SmartSuggestionCard,
                  QuickActions, SavingsSummaryCard, RecentActivity
-    device/      PairingSheet, DeviceLabelCard, ChangePasswordSheet
+    device/      PairingFlow (5-step hub setup), PairingSheet, DeviceLabelCard, ChangePasswordSheet
     inventory/   FoodCard, FoodTile
     recipes/     RecipeHeroCard, RecipeRow, RecipeMatchBadge, RecipeArt
     insights/    ChartCard + the four Recharts visualisations + DataTable

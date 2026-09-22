@@ -108,9 +108,9 @@ export function FridgeSwitcherSheet() {
                       {locked ? (
                         <>
                           <StatusChip tone="orange" icon={Lock}>
-                            Password required
+                            Not paired
                           </StatusChip>
-                          <StatusChip tone="neutral">Tap to connect</StatusChip>
+                          <StatusChip tone="neutral">Tap to set up</StatusChip>
                         </>
                       ) : (
                         <>
@@ -139,7 +139,7 @@ export function FridgeSwitcherSheet() {
         onClose={() => setPairingTarget(null)}
         onPaired={(fridge) => {
           setActiveFridge(fridge.id)
-          toast(`${fridge.name} unlocked`, { description: 'Its inventory is now visible on this phone.' })
+          toast(`${fridge.name} connected`, { description: 'Its inventory is now visible on this phone.' })
         }}
       />
     </>

@@ -62,6 +62,7 @@ type Action =
   | { type: 'set-active-fridge'; id: string }
   | { type: 'rename-fridge'; id: string; name: string }
   | { type: 'sync-fridge'; id: string }
+  | { type: 'set-device-wifi'; id: string; ssid: string }
   | { type: 'pair-device'; id: string; token: string }
   | { type: 'pair-failed'; id: string }
   | { type: 'unpair-device'; id: string }
@@ -103,6 +104,10 @@ function reducer(state: AppState, action: Action): AppState {
       if (!target?.paired) return state
       return { ...state, activeFridgeId: action.id }
     }
+
+    case 'set-device-wifi':
+      // The hub joining a network is what brings it online; nothing is paired yet.
+      return mapFridge(state, action.id, (f) => ({ ...f, wifi: action.ssid, online: true }))
 
     case 'pair-device':
       return mapFridge(state, action.id, (f) => ({
@@ -333,6 +338,8 @@ export interface AppContextValue extends AppState {
   setActiveFridge: (id: string) => void
   renameFridge: (id: string, name: string) => void
   syncFridge: (id: string) => void
+  /** Hands the hub Wi-Fi credentials over Bluetooth during setup. The hub comes online on that network. */
+  setDeviceWifi: (fridgeId: string, ssid: string) => void
   /** Verifies the pairing password on the hub and, on success, authorises this app. */
   pairDevice: (fridgeId: string, password: string) => PairingOutcome
   /** Revokes this app's pairing token. The fridge locks again until it is re-paired. */
@@ -545,6 +552,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.sessionSavings],
   )
 
+  const setDeviceWifi = useCallback<AppContextValue['setDeviceWifi']>(
+    (fridgeId, ssid) => {
+      const fridge = state.fridges.find((f) => f.id === fridgeId)
+      if (!fridge) return
+      dispatch({ type: 'set-device-wifi', id: fridgeId, ssid })
+      logActivity('sync', `${fridge.name} joined ${ssid}`, `${fridge.deviceId} is online`)
+    },
+    [state.fridges, logActivity],
+  )
+
   const pairDevice = useCallback<AppContextValue['pairDevice']>(
     (fridgeId, password) => {
       const fridge = state.fridges.find((f) => f.id === fridgeId)
@@ -666,6 +683,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'sync-fridge', id })
         logActivity('sync', 'Inventory synchronized', 'Requested from the app')
       },
+      setDeviceWifi,
       pairDevice,
       unpairDevice,
       changeDevicePassword,
@@ -708,6 +726,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       completeRecipe,
       logActivity,
       notify,
+      setDeviceWifi,
       pairDevice,
       unpairDevice,
       changeDevicePassword,

@@ -99,8 +99,8 @@ export function createSeedNotifications(): AppNotification[] {
     {
       id: 'n-9',
       category: 'System',
-      title: 'Apartment Fridge is waiting to be paired',
-      body: 'FRISA-HUB-0233 was found on your network. Enter its pairing password to see what is inside.',
+      title: 'Apartment Fridge is waiting to be set up',
+      body: 'FRISA-HUB-0233 is nearby. Put it in pairing mode and FRISA will connect it in a minute.',
       at: hoursAgo(1),
       read: false,
       link: '/fridges',

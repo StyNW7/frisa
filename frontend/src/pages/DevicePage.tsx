@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   BatteryMedium,
+  Bluetooth,
   Camera,
   ChevronRight,
   CircleCheck,
@@ -24,7 +25,7 @@ import { StatusChip } from '@/components/common/Badges'
 import { FrisaMark } from '@/components/common/FrisaMark'
 import { SectionHeader } from '@/components/common/Primitives'
 import { ChangePasswordSheet } from '@/components/device/ChangePasswordSheet'
-import { DeviceLabelCard } from '@/components/device/PairingSheet'
+import { DeviceLabelCard } from '@/components/device/DeviceLabelCard'
 import { useApp, useToast, useUi } from '@/hooks/useApp'
 import { cn, formatDate, formatEventTime, relativeMinutes } from '@/lib/utils'
 
@@ -76,7 +77,8 @@ export function DevicePage() {
     { icon: Camera, label: 'Camera', detail: 'AI item recognition' },
     { icon: Mic, label: 'Microphone', detail: 'Voice commands' },
     { icon: Volume2, label: 'Speaker', detail: 'Spoken answers' },
-    { icon: Wifi, label: 'Network', detail: activeFridge.wifi },
+    { icon: Wifi, label: 'Wi-Fi', detail: activeFridge.wifi },
+    { icon: Bluetooth, label: 'Bluetooth', detail: 'Setup only, off after pairing' },
   ]
 
   const actions: Array<{ key: TestKey; icon: LucideIcon; label: string; variant: 'secondary' | 'outline' }> = [
