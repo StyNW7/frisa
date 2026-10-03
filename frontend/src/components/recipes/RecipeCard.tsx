@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChefHat, Clock, Flame, Sparkles, Users } from 'lucide-react'
 import type { DerivedRecipe } from '@/types'
@@ -40,24 +41,59 @@ export function RecipeMatchBadge({
 export function RecipeArt({
   recipe,
   className,
+  scrim = 'bottom',
+  eager,
   children,
 }: {
-  recipe: DerivedRecipe
+  recipe: Pick<DerivedRecipe, 'art' | 'photo'>
   className?: string
+  /** Where text sits on the photo, so the gradient keeps it legible. */
+  scrim?: 'bottom' | 'full' | 'none'
+  /** Heroes above the fold load immediately; list rows load lazily. */
+  eager?: boolean
   children?: React.ReactNode
 }) {
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+
   return (
     <div
-      className={cn('relative overflow-hidden', className)}
+      className={cn('relative isolate overflow-hidden', className)}
       style={{ background: `linear-gradient(135deg, ${recipe.art[0]} 0%, ${recipe.art[1]} 100%)` }}
     >
-      <span className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full border border-white/15" aria-hidden />
-      <span className="pointer-events-none absolute -bottom-12 -left-6 h-36 w-36 rounded-full border border-white/15" aria-hidden />
-      <ChefHat
-        className="pointer-events-none absolute -bottom-3 right-3 h-24 w-24 text-white/15"
-        strokeWidth={1.2}
-        aria-hidden
-      />
+      {failed ? (
+        <ChefHat
+          className="pointer-events-none absolute -bottom-3 right-3 -z-10 h-24 w-24 text-white/15"
+          strokeWidth={1.2}
+          aria-hidden
+        />
+      ) : (
+        <img
+          src={recipe.photo}
+          alt=""
+          draggable={false}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={cn(
+            'pointer-events-none absolute inset-0 -z-10 h-full w-full select-none object-cover transition-[opacity,transform] duration-700 ease-out',
+            loaded ? 'scale-100 opacity-100' : 'scale-[1.04] opacity-0',
+          )}
+        />
+      )}
+      {scrim !== 'none' ? (
+        <span
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            background:
+              scrim === 'full'
+                ? 'linear-gradient(180deg, rgba(10,22,16,0.42) 0%, rgba(10,22,16,0.08) 34%, rgba(10,22,16,0.28) 58%, rgba(10,22,16,0.86) 100%)'
+                : 'linear-gradient(180deg, rgba(10,22,16,0.30) 0%, rgba(10,22,16,0) 30%, rgba(10,22,16,0.18) 52%, rgba(10,22,16,0.82) 100%)',
+          }}
+          aria-hidden
+        />
+      ) : null}
       {children}
     </div>
   )
@@ -70,17 +106,17 @@ export function RecipeArt({
 export function RecipeHeroCard({ recipe }: { recipe: DerivedRecipe }) {
   return (
     <Link to={`/recipe/${recipe.id}`} className="card press block overflow-hidden hover:shadow-lift">
-      <RecipeArt recipe={recipe} className="p-4 pb-5">
+      <RecipeArt recipe={recipe} eager className="flex min-h-[214px] flex-col p-4 pb-5">
         <div className="relative flex items-start justify-between gap-3">
           <RecipeMatchBadge score={recipe.matchScore} onArt />
           {recipe.priorityItems.length > 0 ? (
             <StatusChip tone="onGreen">{recipe.priorityItems.length} priority items</StatusChip>
           ) : null}
         </div>
-        <h3 className="relative mt-6 text-[20px] font-extrabold leading-tight tracking-tight text-white">
+        <h3 className="relative mt-auto pt-6 text-[21px] font-extrabold leading-tight tracking-tight text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.35)]">
           {recipe.name}
         </h3>
-        <p className="relative mt-1.5 max-w-[85%] text-[13px] leading-snug text-white/80">{recipe.summary}</p>
+        <p className="relative mt-1.5 line-clamp-2 max-w-[92%] text-[13px] leading-snug text-white/85">{recipe.summary}</p>
       </RecipeArt>
 
       <dl className="grid grid-cols-3 divide-x divide-line">
@@ -116,10 +152,8 @@ export function RecipeRow({ recipe }: { recipe: DerivedRecipe }) {
       to={`/recipe/${recipe.id}`}
       className="card press flex items-stretch gap-3 overflow-hidden pr-3.5 hover:border-frisa-200 hover:shadow-lift"
     >
-      <RecipeArt recipe={recipe} className="w-[86px] shrink-0">
-        <span className="absolute inset-0 flex items-center justify-center">
-          <ChefHat className="h-7 w-7 text-white/90" strokeWidth={1.8} aria-hidden />
-        </span>
+      <RecipeArt recipe={recipe} scrim="none" className="my-2 ml-2 w-[92px] shrink-0 rounded-2xl">
+        <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-black/5" aria-hidden />
       </RecipeArt>
 
       <div className="min-w-0 flex-1 py-3">

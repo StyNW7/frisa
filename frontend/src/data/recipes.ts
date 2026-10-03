@@ -9,6 +9,7 @@ import type { Recipe } from '@/types'
 export const RECIPES: Recipe[] = [
   {
     id: 'chicken-spinach-stir-fry',
+    photo: '/Images/recipes/chicken-spinach-stir-fry.webp',
     name: 'Chicken Spinach Stir-Fry',
     summary:
       'A fast weeknight stir-fry that clears the three ingredients closest to their expiry date in a single pan.',
@@ -41,6 +42,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'broccoli-chicken-rice-bowl',
+    photo: '/Images/recipes/broccoli-chicken-rice-bowl.webp',
     name: 'Broccoli Chicken Rice Bowl',
     summary: 'A balanced rice bowl that uses the remaining chicken and the vegetables in the crisper.',
     cuisine: 'Asian',
@@ -69,6 +71,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'spinach-omelette',
+    photo: '/Images/recipes/spinach-omelette.webp',
     name: 'Spinach Omelette',
     summary: 'Fifteen minutes from fridge to plate. The quickest way to rescue half a pack of spinach.',
     cuisine: 'Western',
@@ -95,6 +98,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'creamy-tomato-pasta',
+    photo: '/Images/recipes/creamy-tomato-pasta.webp',
     name: 'Creamy Tomato Pasta',
     summary: 'Ripe tomatoes and the open carton of milk become a smooth sauce with no cream needed.',
     cuisine: 'Italian',
@@ -124,6 +128,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'tempeh-vegetable-stir-fry',
+    photo: '/Images/recipes/tempeh-vegetable-stir-fry.webp',
     name: 'Tempeh Vegetable Stir-Fry',
     summary: 'A plant-forward stir-fry built around tempeh, broccoli and carrot.',
     cuisine: 'Indonesian',
@@ -152,6 +157,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'greek-yogurt-fruit-bowl',
+    photo: '/Images/recipes/greek-yogurt-fruit-bowl.webp',
     name: 'Greek Yogurt Fruit Bowl',
     summary: 'Seven minutes, no cooking, and every ingredient is already in the fridge.',
     cuisine: 'Western',
@@ -175,6 +181,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'creamy-spinach-pasta',
+    photo: '/Images/recipes/creamy-spinach-pasta.webp',
     name: 'Creamy Spinach Pasta',
     summary: 'A comforting pasta that turns spinach and an open carton of milk into dinner.',
     cuisine: 'Italian',
@@ -203,6 +210,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'nasi-goreng-revival',
+    photo: '/Images/recipes/nasi-goreng-revival.webp',
     name: 'Nasi Goreng Revival Bowl',
     summary: 'Last night’s fried rice, reheated properly with fresh egg and carrot instead of being thrown away.',
     cuisine: 'Indonesian',
@@ -230,6 +238,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'tomato-egg-scramble',
+    photo: '/Images/recipes/tomato-egg-scramble.webp',
     name: 'Tomato Egg Scramble',
     summary: 'A ten-minute breakfast that quietly uses up soft tomatoes.',
     cuisine: 'Asian',
@@ -256,6 +265,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'broccoli-cheddar-soup',
+    photo: '/Images/recipes/broccoli-cheddar-soup.webp',
     name: 'Broccoli Cheddar Soup',
     summary: 'A warm soup that clears broccoli, milk and the end of the cheddar block in one pot.',
     cuisine: 'Western',
@@ -284,6 +294,7 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'milk-apple-smoothie',
+    photo: '/Images/recipes/milk-apple-smoothie.webp',
     name: 'Milk and Apple Smoothie',
     summary: 'Five minutes and one blender. A simple way to finish an open carton of milk.',
     cuisine: 'Western',

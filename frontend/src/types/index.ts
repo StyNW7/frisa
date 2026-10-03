@@ -80,8 +80,10 @@ export interface Recipe {
   servings: number
   calories: number
   tags: RecipeTag[]
-  /** Two-stop gradient used for the recipe artwork placeholder. */
+  /** Two-stop gradient behind the photo while it loads, and its colour cast. */
   art: [string, string]
+  /** Dish photograph, served locally from `public/Images/recipes/`. */
+  photo: string
   ingredients: RecipeIngredient[]
   steps: string[]
 }

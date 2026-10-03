@@ -64,7 +64,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,webmanifest}'],
         /* The raw mascot renders are multi-megabyte source files; only the cut-out
            `Images/brand/` set the app actually renders is shipped offline. */
-        globIgnores: ['vite.svg', 'Images/*.png'],
+        /* The food photography (~3.7 MB) is cached as it is first viewed instead,
+           so installing the app stays light. */
+        globIgnores: ['vite.svg', 'Images/*.png', 'Images/food/**', 'Images/recipes/**'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
@@ -73,6 +75,15 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /\/[^/?]+\.[^/]+$/],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/Images/food/') || url.pathname.startsWith('/Images/recipes/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'frisa-food-photos',
+              expiration: { maxEntries: 220, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
             handler: 'StaleWhileRevalidate',

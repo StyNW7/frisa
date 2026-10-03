@@ -18,7 +18,8 @@ import type { FoodCategory, FoodItem, StorageLocation } from '@/types'
 import { PageHeader } from '@/components/common/TopHeader'
 import { Button } from '@/components/common/Button'
 import { StatusChip } from '@/components/common/Badges'
-import { FoodAvatar } from '@/components/common/FoodAvatar'
+import { FoodAvatar, FoodPhoto } from '@/components/common/FoodAvatar'
+import { CATEGORY_BACKDROP } from '@/lib/foodImagery'
 import { SegmentedControl } from '@/components/common/Primitives'
 import { FrisaMark } from '@/components/common/FrisaMark'
 import { FOOD_CATEGORIES, STORAGE_LOCATIONS } from '@/data/fridges'
@@ -295,12 +296,18 @@ export function ScanPage() {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div
                   className={cn(
-                    'flex h-32 w-32 items-center justify-center rounded-3xl bg-white/10 ring-1 ring-inset ring-white/15 transition-transform duration-500',
+                    'flex items-center justify-center rounded-3xl ring-1 ring-inset transition-all duration-500',
+                    phase === 'recognised' && detection
+                      ? 'h-40 w-40 ring-white/60 shadow-[0_20px_50px_-18px_rgba(37,184,119,0.65)]'
+                      : 'h-32 w-32 bg-white/10 ring-white/15',
                     phase === 'scanning' && 'scale-95',
                   )}
+                  style={phase === 'recognised' && detection ? { background: CATEGORY_BACKDROP[detection.category] } : undefined}
                 >
                   {phase === 'recognised' && detection ? (
-                    <FoodAvatar name={detection.name} category={detection.category} size="xl" className="bg-white/90" />
+                    <span className="animate-pop-in flex h-full w-full items-center justify-center">
+                      <FoodPhoto name={detection.name} category={detection.category} eager className="h-[86%] w-[86%]" glyphClassName="h-12 w-12" />
+                    </span>
                   ) : phase === 'unknown' ? (
                     <CircleHelp className="h-12 w-12 text-white/70" strokeWidth={1.6} aria-hidden />
                   ) : (

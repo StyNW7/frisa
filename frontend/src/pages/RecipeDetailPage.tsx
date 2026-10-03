@@ -19,6 +19,7 @@ import { BottomSheet } from '@/components/common/BottomSheet'
 import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/Feedback'
 import { StatusChip } from '@/components/common/Badges'
+import { FoodAvatar } from '@/components/common/FoodAvatar'
 import { RecipeArt, RecipeMatchBadge } from '@/components/recipes/RecipeCard'
 import { SectionHeader } from '@/components/common/Primitives'
 import { useApp, useToast } from '@/hooks/useApp'
@@ -82,7 +83,7 @@ export function RecipeDetailPage() {
     <div className="flex h-full flex-col">
       <div className="hide-scrollbar flex-1 overflow-y-auto pb-6">
         {/* Hero */}
-        <RecipeArt recipe={recipe} className="px-5 pb-6 pt-5">
+        <RecipeArt recipe={recipe} eager scrim="full" className="flex min-h-[340px] flex-col px-5 pb-6 pt-5">
           <div className="relative flex items-center justify-between">
             <button
               type="button"
@@ -106,7 +107,7 @@ export function RecipeDetailPage() {
             </button>
           </div>
 
-          <div className="relative mt-8">
+          <div className="relative mt-auto pt-10">
             <div className="flex flex-wrap items-center gap-2">
               <RecipeMatchBadge score={recipe.matchScore} onArt />
               {recipe.priorityItems.length > 0 ? (
@@ -115,8 +116,10 @@ export function RecipeDetailPage() {
                 </StatusChip>
               ) : null}
             </div>
-            <h1 className="mt-3 text-[26px] font-extrabold leading-tight tracking-tight text-white">{recipe.name}</h1>
-            <p className="mt-2 text-[13px] leading-relaxed text-white/80">{recipe.summary}</p>
+            <h1 className="mt-3 text-[27px] font-extrabold leading-tight tracking-tight text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.35)]">
+              {recipe.name}
+            </h1>
+            <p className="mt-2 text-[13px] leading-relaxed text-white/85">{recipe.summary}</p>
           </div>
         </RecipeArt>
 
@@ -174,21 +177,25 @@ export function RecipeDetailPage() {
             <ul className="card divide-y divide-line overflow-hidden">
               {states.map(({ ingredient, item, available, priority, short }) => (
                 <li key={ingredient.name} className="flex items-center gap-3 px-4 py-3">
-                  <span
-                    className={cn(
-                      'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
-                      priority
-                        ? 'bg-ember-50 text-ember-600'
-                        : available
-                          ? 'bg-frisa-50 text-frisa-600'
-                          : 'bg-mist text-ink-faint',
-                    )}
-                  >
-                    {available ? (
-                      <Check className="h-4 w-4" strokeWidth={2.8} aria-hidden />
-                    ) : (
-                      <TriangleAlert className="h-4 w-4" strokeWidth={2.2} aria-hidden />
-                    )}
+                  <span className="relative shrink-0">
+                    <FoodAvatar
+                      name={ingredient.name}
+                      category={item?.category}
+                      size="md"
+                      className={cn(!available && 'opacity-55 grayscale-[35%]')}
+                    />
+                    <span
+                      className={cn(
+                        'absolute -bottom-1 -right-1 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-white ring-2 ring-white',
+                        priority ? 'bg-ember-500' : available ? 'bg-frisa-500' : 'bg-ink-faint',
+                      )}
+                    >
+                      {available ? (
+                        <Check className="h-2.5 w-2.5" strokeWidth={3.4} aria-hidden />
+                      ) : (
+                        <TriangleAlert className="h-2.5 w-2.5" strokeWidth={2.8} aria-hidden />
+                      )}
+                    </span>
                   </span>
 
                   <span className="min-w-0 flex-1">

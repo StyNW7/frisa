@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { CircleCheck, Clock, Sparkles, Wallet } from 'lucide-react'
 import type { DerivedRecipe } from '@/types'
 import { FrisaMark } from '@/components/common/FrisaMark'
+import { FoodAvatar } from '@/components/common/FoodAvatar'
+import { RecipeArt } from '@/components/recipes/RecipeCard'
 import { useToast } from '@/hooks/useApp'
 import { rupiah } from '@/lib/utils'
 
@@ -32,15 +34,45 @@ export function SmartSuggestionCard({ recipe }: { recipe: DerivedRecipe }) {
       className="relative overflow-hidden rounded-3xl border border-frisa-100 p-4"
       style={{ background: 'linear-gradient(135deg, #EAF8F1 0%, #FFFFFF 58%, #FFF6EC 100%)' }}
     >
-      <div className="flex items-center gap-2">
-        <FrisaMark className="h-8 w-8" />
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-frisa-700">
-          <Sparkles className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden />
-          FRISA Suggests
-        </span>
+      <div className="flex items-start gap-3.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <FrisaMark className="h-8 w-8" />
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-frisa-700">
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden />
+              FRISA Suggests
+            </span>
+          </div>
+          <p className="mt-3 text-[15px] font-semibold leading-relaxed text-ink">{sentence}</p>
+        </div>
+
+        <Link
+          to={`/recipe/${recipe.id}`}
+          aria-label={`Open ${recipe.name}`}
+          className="press mt-1 shrink-0 overflow-hidden rounded-[22px] shadow-lift ring-[3px] ring-white"
+        >
+          <RecipeArt recipe={recipe} scrim="none" className="h-[104px] w-[96px]" />
+        </Link>
       </div>
 
-      <p className="mt-3 text-[15px] font-semibold leading-relaxed text-ink">{sentence}</p>
+      {recipe.priorityItems.length > 0 ? (
+        <div className="mt-3.5 flex items-center gap-2.5">
+          <span className="flex -space-x-2">
+            {recipe.priorityItems.slice(0, 4).map((item) => (
+              <FoodAvatar
+                key={item.id}
+                name={item.name}
+                category={item.category}
+                size="xs"
+                className="rounded-full ring-2 ring-white"
+              />
+            ))}
+          </span>
+          <span className="text-2xs font-semibold text-ember-700">
+            Rescues {recipe.priorityItems.length} priority {recipe.priorityItems.length === 1 ? 'item' : 'items'}
+          </span>
+        </div>
+      ) : null}
 
       <dl className="mt-4 grid grid-cols-3 gap-2">
         <div className="rounded-2xl bg-white/80 p-2.5 text-center ring-1 ring-inset ring-frisa-100">

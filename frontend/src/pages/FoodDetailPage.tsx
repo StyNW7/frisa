@@ -16,7 +16,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { TopHeader } from '@/components/common/TopHeader'
-import { FoodAvatar } from '@/components/common/FoodAvatar'
+import { FoodStage } from '@/components/common/FoodAvatar'
 import { RiskMeter, StatusChip } from '@/components/common/Badges'
 import { BottomSheet, ConfirmationSheet } from '@/components/common/BottomSheet'
 import { Button } from '@/components/common/Button'
@@ -142,8 +142,15 @@ export function FoodDetailPage() {
       <div className="space-y-6 px-5 pt-5">
         {/* Risk hero */}
         <section className="card overflow-hidden">
-          <div className="flex items-start gap-4 p-4">
-            <FoodAvatar name={item.name} category={item.category} size="xl" />
+          <FoodStage name={item.name} category={item.category} className="h-56">
+            <span className="absolute left-3.5 top-3.5 inline-flex items-center rounded-full bg-white/80 px-2.5 py-1 text-2xs font-bold text-ink-soft shadow-card ring-1 ring-inset ring-white backdrop-blur-sm">
+              {item.category}
+            </span>
+            <span className="num absolute bottom-3.5 right-3.5 inline-flex items-center rounded-full bg-white/80 px-2.5 py-1 text-2xs font-bold text-ink-soft shadow-card ring-1 ring-inset ring-white backdrop-blur-sm">
+              {formatQuantity(item)} left
+            </span>
+          </FoodStage>
+          <div className="flex items-start gap-4 border-t border-line p-4">
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-faint">Waste risk</p>
               <div className="mt-1 flex items-baseline gap-1.5">

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChefHat, CircleCheck, ShieldCheck } from 'lucide-react'
 import type { FoodItem } from '@/types'
-import { FoodAvatar } from '@/components/common/FoodAvatar'
+import { FoodStage } from '@/components/common/FoodAvatar'
 import { RiskBadge, RiskMeter } from '@/components/common/Badges'
 import { ConfirmationSheet } from '@/components/common/BottomSheet'
 import { EmptyState } from '@/components/common/Feedback'
@@ -56,13 +56,18 @@ export function PriorityRail() {
             return (
               <article
                 key={item.id}
-                className="card flex w-[220px] shrink-0 snap-start flex-col p-3.5"
+                className="card flex w-[220px] shrink-0 snap-start flex-col overflow-hidden p-3.5"
               >
                 <Link to={`/food/${item.id}`} className="group">
-                  <div className="flex items-start justify-between gap-2">
-                    <FoodAvatar name={item.name} category={item.category} size="lg" />
-                    <RiskBadge score={score} size="sm" />
-                  </div>
+                  <FoodStage
+                    name={item.name}
+                    category={item.category}
+                    eager={false}
+                    className="-mx-3.5 -mt-3.5 h-[112px] border-b border-line"
+                    photoClassName="h-[80%] w-[80%] transition-transform duration-300 group-hover:scale-105"
+                  >
+                    <RiskBadge score={score} size="sm" className="absolute right-2.5 top-2.5 shadow-card" />
+                  </FoodStage>
                   <p className="mt-3 truncate text-[15px] font-bold leading-tight text-ink group-hover:text-frisa-700">
                     {item.name}
                   </p>
