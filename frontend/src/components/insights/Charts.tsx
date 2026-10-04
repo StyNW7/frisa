@@ -4,6 +4,7 @@ import {
   AreaChart,
   Bar,
   BarChart,
+  CartesianGrid,
   Cell,
   Pie,
   PieChart,
@@ -81,30 +82,62 @@ function FrisaTooltip({
 
 const AXIS_TICK = { fill: CHART.axis, fontSize: 11, fontWeight: 600 }
 
+/**
+ * Evenly spaced axis ticks on round numbers (1, 2, 2.5 or 5 times a power of ten),
+ * with a little headroom above the peak. Recharts' own ticks drop labels that
+ * collide, which leaves uneven gaps such as 0, 2, 5.
+ */
+function niceTicks(peak: number): number[] {
+  if (!(peak > 0)) return [0, 1]
+  const ceiling = peak * 1.06
+  const magnitude = 10 ** Math.floor(Math.log10(ceiling))
+  /* Of every round step that gives three to six intervals, keep the one whose
+     top sits closest above the peak, so the data fills the plot. */
+  let best = { step: magnitude, top: Math.ceil(ceiling / magnitude) * magnitude }
+  for (const scale of [0.1, 1]) {
+    for (const nice of [1, 2, 2.5, 5]) {
+      const step = nice * magnitude * scale
+      const intervals = Math.ceil(ceiling / step)
+      if (intervals < 3 || intervals > 6) continue
+      const top = intervals * step
+      if (top < best.top || (top === best.top && step > best.step)) best = { step, top }
+    }
+  }
+  const ticks: number[] = []
+  for (let i = 0; i * best.step <= best.top + best.step / 1000; i += 1) {
+    ticks.push(Math.round(i * best.step * 1000) / 1000)
+  }
+  return ticks
+}
+
+const GRID = <CartesianGrid vertical={false} stroke={CHART.grid} strokeDasharray="3 4" />
+
 /* -------------------------------------------------------------------------- */
 /*  1. Food saved trend - one series, so no legend; the title names it.        */
 /* -------------------------------------------------------------------------- */
 
 export function FoodSavedTrendChart({ data }: { data: ChartDataPoint[] }) {
   const gradientId = useId()
-  const peak = Math.max(...data.map((d) => d.value))
+  const ticks = niceTicks(Math.max(...data.map((d) => d.value)))
 
   return (
     <ResponsiveContainer width="100%" height={190}>
-      <AreaChart data={data} margin={{ top: 16, right: 20, bottom: 4, left: 4 }}>
+      <AreaChart data={data} margin={{ top: 16, right: 16, bottom: 4, left: 4 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={CHART.green} stopOpacity={0.28} />
             <stop offset="100%" stopColor={CHART.green} stopOpacity={0.02} />
           </linearGradient>
         </defs>
+        {GRID}
         <XAxis
           dataKey="label"
           tickLine={false}
           axisLine={{ stroke: CHART.grid }}
           tick={AXIS_TICK}
           dy={6}
-          interval={0}
+          interval={data.length > 8 ? 'preserveStartEnd' : 0}
+          padding={{ left: 14, right: 14 }}
         />
         <YAxis
           tickLine={false}
@@ -112,7 +145,9 @@ export function FoodSavedTrendChart({ data }: { data: ChartDataPoint[] }) {
           tick={AXIS_TICK}
           width={34}
           tickFormatter={(value: number) => `${value}`}
-          domain={[0, Math.ceil(peak * 1.25 * 10) / 10]}
+          ticks={ticks}
+          domain={[0, ticks[ticks.length - 1]]}
+          interval={0}
         />
         <Tooltip
           cursor={{ stroke: CHART.grid, strokeWidth: 1 }}
@@ -239,19 +274,22 @@ export function WasteByCategoryChart({ data }: { data: ChartDataPoint[] }) {
 /* -------------------------------------------------------------------------- */
 
 export function MoneySavedChart({ data }: { data: ChartDataPoint[] }) {
-  const peak = Math.max(...data.map((d) => d.value))
+  const ticks = niceTicks(Math.max(...data.map((d) => d.value)))
 
   return (
     <ResponsiveContainer width="100%" height={196}>
       <BarChart data={data} margin={{ top: 20, right: 12, bottom: 4, left: 0 }} barCategoryGap={data.length > 5 ? 6 : 18}>
+        {GRID}
         <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: CHART.grid }} tick={AXIS_TICK} dy={6} interval={0} />
         <YAxis
           tickLine={false}
           axisLine={false}
           tick={AXIS_TICK}
-          width={44}
+          width={48}
           tickFormatter={(value: number) => rupiahShort(value)}
-          domain={[0, Math.ceil((peak * 1.2) / 10000) * 10000]}
+          ticks={ticks}
+          domain={[0, ticks[ticks.length - 1]]}
+          interval={0}
         />
         <Tooltip
           cursor={{ fill: 'rgba(228,234,230,0.45)' }}

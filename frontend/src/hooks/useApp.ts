@@ -1,7 +1,9 @@
-import { useContext } from 'react'
+import { useContext, useMemo } from 'react'
 import { AppContext } from '@/store/AppContext'
 import { ToastContext } from '@/store/ToastContext'
 import { UiContext } from '@/store/UiContext'
+import { rankRecipes } from '@/lib/recipes'
+import { RECIPES } from '@/data/recipes'
 
 export function useApp() {
   const ctx = useContext(AppContext)
@@ -13,6 +15,12 @@ export function useToast() {
   const ctx = useContext(ToastContext)
   if (!ctx) throw new Error('useToast must be used inside <ToastProvider>')
   return ctx
+}
+
+/** Recipes ranked for the selected fridge and screened against the household preferences. */
+export function useRecipeRanking() {
+  const { items, preferences } = useApp()
+  return useMemo(() => rankRecipes(RECIPES, items, preferences), [items, preferences])
 }
 
 export function useUi() {

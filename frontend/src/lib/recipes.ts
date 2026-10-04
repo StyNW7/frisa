@@ -1,5 +1,6 @@
-import type { DerivedRecipe, FoodItem, Recipe, RecipeIngredient } from '@/types'
+import type { DerivedRecipe, FoodItem, Recipe, RecipeIngredient, UserPreference } from '@/types'
 import { isPriority, portionValue, portionWeight, riskScore } from '@/lib/utils'
+import { preferenceBoost, screenRecipe, type DietaryVerdict } from '@/lib/dietary'
 
 export interface IngredientState {
   ingredient: RecipeIngredient
@@ -59,17 +60,48 @@ export function deriveRecipes(recipes: Recipe[], items: FoodItem[]): DerivedReci
  * clears, and how well it fits the fridge. Urgency leads, but a recipe that rescues
  * three ingredients at 92% fit still beats one that rescues a single item at 87%.
  */
-export function recommendationScore(recipe: DerivedRecipe): number {
+export function recommendationScore(recipe: DerivedRecipe, boost = 0): number {
   const urgency = Math.max(0, ...recipe.priorityItems.map(riskScore), 0)
-  return urgency * 0.5 + recipe.matchScore * 0.3 + recipe.priorityItems.length * 6
+  return urgency * 0.5 + recipe.matchScore * 0.3 + recipe.priorityItems.length * 6 + boost
 }
 
-export function sortRecommended(recipes: DerivedRecipe[]): DerivedRecipe[] {
+export function sortRecommended(
+  recipes: DerivedRecipe[],
+  prefs?: Pick<UserPreference, 'cuisines' | 'recipePrefs'>,
+): DerivedRecipe[] {
+  const score = (recipe: DerivedRecipe) => recommendationScore(recipe, prefs ? preferenceBoost(recipe, prefs) : 0)
   return [...recipes].sort((a, b) => {
-    const diff = recommendationScore(b) - recommendationScore(a)
+    const diff = score(b) - score(a)
     if (Math.abs(diff) > 0.001) return diff
     return b.matchScore - a.matchScore
   })
+}
+
+export interface ScreenedRecipe extends DerivedRecipe {
+  verdict: DietaryVerdict
+}
+
+export interface RecipeRanking {
+  /** Recipes that fit the household diet and allergies, best first. */
+  suitable: ScreenedRecipe[]
+  /** Recipes held back by the household preferences, best first. */
+  filtered: ScreenedRecipe[]
+}
+
+/**
+ * The one ranking every screen uses: live availability from the selected fridge,
+ * screened against the household diet and allergies, nudged towards favourite
+ * cuisines and recipe styles.
+ */
+export function rankRecipes(recipes: Recipe[], items: FoodItem[], prefs: UserPreference): RecipeRanking {
+  const ranked = sortRecommended(deriveRecipes(recipes, items), prefs).map((recipe) => ({
+    ...recipe,
+    verdict: screenRecipe(recipe, prefs),
+  }))
+  return {
+    suitable: ranked.filter((recipe) => recipe.verdict.compatible),
+    filtered: ranked.filter((recipe) => !recipe.verdict.compatible),
+  }
 }
 
 export interface RecipeConsumption {

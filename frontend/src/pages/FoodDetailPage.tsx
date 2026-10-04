@@ -23,10 +23,9 @@ import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/Feedback'
 import { SectionHeader } from '@/components/common/Primitives'
 import { RecipeRow } from '@/components/recipes/RecipeCard'
-import { useApp, useToast } from '@/hooks/useApp'
-import { deriveRecipes, sortRecommended } from '@/lib/recipes'
-import { RECIPES } from '@/data/recipes'
+import { useApp, useRecipeRanking, useToast } from '@/hooks/useApp'
 import {
+  cn,
   daysUntil,
   expiryPhrase,
   formatDate,
@@ -53,17 +52,17 @@ export function FoodDetailPage() {
     : fridges.find((f) => f.id !== activeFridgeId && f.items.some((i) => i.id === id))
 
   const [useOpen, setUseOpen] = useState(false)
+  const [useQty, setUseQty] = useState(item?.quantity ?? 1)
   const [qtyOpen, setQtyOpen] = useState(false)
   const [wasteOpen, setWasteOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [draftQty, setDraftQty] = useState(item?.quantity ?? 1)
 
+  const { suitable } = useRecipeRanking()
   const recipes = useMemo(() => {
     if (!item) return []
-    return sortRecommended(deriveRecipes(RECIPES, items)).filter((recipe) =>
-      recipe.ingredients.some((ingredient) => ingredient.foodId === item.id),
-    )
-  }, [items, item])
+    return suitable.filter((recipe) => recipe.ingredients.some((ingredient) => ingredient.foodId === item.id))
+  }, [suitable, item])
 
   if (!item) {
     return (
@@ -103,7 +102,16 @@ export function FoodDetailPage() {
   const score = riskScore(item)
   const level = riskLevel(score)
   const days = daysUntil(item.expiresAt)
-  const step = item.unit === 'g' || item.unit === 'ml' ? 50 : 1
+  /* Grams and millilitres move in 50s, litres and kilos in quarters, and a single
+     pack or container in halves, so a partial use can always be recorded. */
+  const step =
+    item.unit === 'g' || item.unit === 'ml'
+      ? 50
+      : item.unit === 'L' || item.unit === 'kg'
+        ? 0.25
+        : item.quantity < 2
+          ? 0.5
+          : 1
 
   const facts = [
     { icon: CalendarDays, label: 'Expiry', value: item.shelfStable ? 'Long shelf life' : formatDate(item.expiresAt, { day: 'numeric', month: 'short', year: 'numeric' }) },
@@ -305,36 +313,104 @@ export function FoodDetailPage() {
             <ChefHat className="h-[18px] w-[18px]" strokeWidth={2.1} aria-hidden />
             Find Recipe
           </Button>
-          <Button size="lg" className="flex-1" onClick={() => setUseOpen(true)}>
+          <Button
+            size="lg"
+            className="flex-1"
+            onClick={() => {
+              setUseQty(item.quantity)
+              setUseOpen(true)
+            }}
+          >
             <CircleCheck className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
             Use Item
           </Button>
         </div>
       </div>
 
-      {/* Use item */}
-      <ConfirmationSheet
+      {/* Use item: all of it, or just the portion that went into a meal */}
+      <BottomSheet
         open={useOpen}
-        title={`Use ${item.name}?`}
-        description="The full remaining quantity will be deducted and counted as food rescued."
-        confirmLabel="Yes, mark as used"
-        onCancel={() => setUseOpen(false)}
-        onConfirm={() => {
-          setUseOpen(false)
-          consumeItem(item.id)
-          toast(`${item.name} marked as used`, { description: `About ${rupiah(item.value)} of food rescued.` })
-          navigate('/inventory')
-        }}
-        detail={
-          <div className="flex items-center gap-3 rounded-2xl bg-frisa-50 p-3.5">
-            <CircleCheck className="h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2.2} aria-hidden />
-            <p className="text-[13px] leading-snug text-frisa-800">
-              {formatQuantity(item)} will leave your inventory and {rupiah(item.value)} will be added to this
-              month&apos;s savings.
-            </p>
+        onClose={() => setUseOpen(false)}
+        title={`Use ${item.name}`}
+        description="How much did you use? FRISA deducts it and counts it as food rescued."
+        footer={
+          <div className="flex gap-3">
+            <Button variant="outline" size="lg" block onClick={() => setUseOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="lg"
+              block
+              disabled={useQty <= 0}
+              onClick={() => {
+                const all = useQty >= item.quantity
+                const portionValue = Math.round((item.value / item.quantity) * Math.min(useQty, item.quantity))
+                setUseOpen(false)
+                consumeItem(item.id, Math.min(useQty, item.quantity))
+                toast(all ? `${item.name} used up` : `${useQty} ${item.unit} of ${item.name} used`, {
+                  description: `About ${rupiah(portionValue)} of food put to good use.`,
+                })
+                if (all) navigate('/inventory', { replace: true })
+              }}
+            >
+              {useQty >= item.quantity ? 'Use it all' : `Use ${useQty} ${item.unit}`}
+            </Button>
           </div>
         }
-      />
+      >
+        <div className="flex items-center justify-between rounded-3xl border border-line bg-mist/50 p-3">
+          <button
+            type="button"
+            aria-label="Use less"
+            onClick={() => setUseQty((q) => Math.max(0, Math.round((q - step) * 100) / 100))}
+            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-surface text-ink shadow-card transition-transform active:scale-95"
+          >
+            <Minus className="h-4 w-4" strokeWidth={2.4} />
+          </button>
+          <div className="text-center">
+            <span className="num text-3xl font-extrabold leading-none text-ink">{useQty}</span>
+            <span className="mt-1 block text-xs font-semibold text-ink-muted">
+              of {item.quantity} {item.unit}
+            </span>
+          </div>
+          <button
+            type="button"
+            aria-label="Use more"
+            onClick={() => setUseQty((q) => Math.min(item.quantity, Math.round((q + step) * 100) / 100))}
+            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-surface text-ink shadow-card transition-transform active:scale-95"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.4} />
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {[
+            { label: 'Half', value: Math.max(step, Math.round((item.quantity / 2 / step)) * step) },
+            { label: 'All of it', value: item.quantity },
+          ].map(({ label, value }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setUseQty(Math.min(item.quantity, value))}
+              className={cn(
+                'h-10 rounded-2xl border text-[13px] font-bold transition-colors',
+                useQty === Math.min(item.quantity, value)
+                  ? 'border-frisa-500 bg-frisa-50 text-frisa-700'
+                  : 'border-line bg-surface text-ink-muted hover:border-frisa-200',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-frisa-50 p-3.5">
+          <CircleCheck className="h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2.2} aria-hidden />
+          <p className="text-[13px] leading-snug text-frisa-800">
+            {useQty >= item.quantity
+              ? `${item.name} leaves your inventory and ${rupiah(item.value)} counts towards this month's savings.`
+              : `${Math.round((item.quantity - useQty) * 100) / 100} ${item.unit} stays in ${item.storage.toLowerCase()}.`}
+          </p>
+        </div>
+      </BottomSheet>
 
       {/* Update quantity */}
       <BottomSheet
@@ -351,7 +427,7 @@ export function FoodDetailPage() {
               if (draftQty <= 0) {
                 removeItem(item.id)
                 toast(`${item.name} removed`, { tone: 'info', description: 'The quantity reached zero.' })
-                navigate('/inventory')
+                navigate('/inventory', { replace: true })
                 return
               }
               updateItem(item.id, { quantity: draftQty })
@@ -404,7 +480,7 @@ export function FoodDetailPage() {
             tone: 'warning',
             description: 'FRISA will remind you earlier next time.',
           })
-          navigate('/inventory')
+          navigate('/inventory', { replace: true })
         }}
       />
 
@@ -420,7 +496,7 @@ export function FoodDetailPage() {
           setDeleteOpen(false)
           removeItem(item.id)
           toast(`${item.name} deleted`, { tone: 'info' })
-          navigate('/inventory')
+          navigate('/inventory', { replace: true })
         }}
       />
     </div>

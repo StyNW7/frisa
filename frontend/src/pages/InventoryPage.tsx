@@ -33,6 +33,7 @@ const FILTERS = [
   'Drinks',
   'Frozen',
   'Leftover',
+  'Pantry',
 ] as const
 type Filter = (typeof FILTERS)[number]
 
@@ -44,14 +45,43 @@ const SORTS = [
 ] as const
 type SortKey = (typeof SORTS)[number]['key']
 
+const GRID_KEY = 'frisa.inventory-grid'
+
+/* Filter, sort and search survive a trip into a food detail and back, the way a
+   native list keeps its state. Held in memory only, so a reload starts clean. */
+const viewMemory: { query: string; filter: Filter; sort: SortKey } = { query: '', filter: 'All', sort: 'expiry' }
+
 export function InventoryPage() {
   const { items, activeFridge } = useApp()
   const [params, setParams] = useSearchParams()
 
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<Filter>('All')
-  const [sort, setSort] = useState<SortKey>('expiry')
-  const [grid, setGrid] = useState(false)
+  const [query, setQuery] = useState(viewMemory.query)
+  const [filter, setFilter] = useState<Filter>(viewMemory.filter)
+  const [sort, setSort] = useState<SortKey>(viewMemory.sort)
+
+  useEffect(() => {
+    viewMemory.query = query
+    viewMemory.filter = filter
+    viewMemory.sort = sort
+  }, [query, filter, sort])
+  /* The list/grid choice is a per-device preference, so it survives a reload. */
+  const [grid, setGridState] = useState(() => {
+    try {
+      return localStorage.getItem(GRID_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const setGrid = (next: boolean | ((prev: boolean) => boolean)) =>
+    setGridState((prev) => {
+      const value = typeof next === 'function' ? next(prev) : next
+      try {
+        localStorage.setItem(GRID_KEY, value ? '1' : '0')
+      } catch {
+        /* storage unavailable: keep the choice for this visit only */
+      }
+      return value
+    })
   const [sortOpen, setSortOpen] = useState(false)
 
   /* Deep link from Home: /inventory?filter=Use%20Soon */
@@ -59,6 +89,7 @@ export function InventoryPage() {
     const incoming = params.get('filter')
     if (incoming && (FILTERS as readonly string[]).includes(incoming)) {
       setFilter(incoming as Filter)
+      setQuery('')
       const next = new URLSearchParams(params)
       next.delete('filter')
       setParams(next, { replace: true })
@@ -84,13 +115,28 @@ export function InventoryPage() {
         case 'alpha':
           return a.name.localeCompare(b.name)
         default:
-          return daysUntil(a.expiresAt) - daysUntil(b.expiresAt)
+          /* Same expiry day: the riskier item goes first. */
+          return daysUntil(a.expiresAt) - daysUntil(b.expiresAt) || riskScore(b) - riskScore(a)
       }
     })
     return list
   }, [items, query, filter, sort])
 
   const useSoonCount = items.filter(isPriority).length
+
+  /* Category pills only appear when this fridge holds something in them. */
+  const filterCounts = useMemo(() => {
+    const counts: Partial<Record<Filter, number>> = {
+      All: items.length,
+      'Use Soon': items.filter(isPriority).length,
+      Fresh: items.filter((item) => !isPriority(item)).length,
+    }
+    for (const item of items) counts[item.category] = (counts[item.category] ?? 0) + 1
+    return counts
+  }, [items])
+  const visibleFilters = FILTERS.filter(
+    (option) => option === 'All' || option === filter || (filterCounts[option] ?? 0) > 0,
+  )
   const totalValue = items.reduce((sum, item) => sum + item.value, 0)
   const activeSort = SORTS.find((s) => s.key === sort)
 
@@ -144,7 +190,7 @@ export function InventoryPage() {
           </button>
         </div>
 
-        <FilterPills options={FILTERS} value={filter} onChange={setFilter} label="Filter inventory" />
+        <FilterPills options={visibleFilters} value={filter} onChange={setFilter} counts={filterCounts} label="Filter inventory" />
 
         <div className="flex items-center justify-between gap-3 pt-0.5">
           <p className="text-xs text-ink-muted">

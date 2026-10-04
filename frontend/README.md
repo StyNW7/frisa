@@ -248,6 +248,24 @@ Recommendation order blends urgency, how many at-risk items a recipe clears, and
 well it fits — so a 92% match that rescues three ingredients outranks an 87% match
 that rescues one.
 
+### Household preferences
+
+The diet and allergies chosen during setup (or later in **Profile**) really do filter
+suggestions. `src/lib/dietary.ts` reads each recipe's ingredient names — eggs, dairy,
+gluten, soy, peanuts, shellfish, meat and fish, staple carbs — so no recipe needs
+hand-tagging. Home, Recipes, Food detail and Ask FRISA all rank from the same
+`useRecipeRanking()` hook, which:
+
+- leaves out anything that clashes with the household diet or allergies,
+- shows those recipes under *"N recipes hidden by your preferences"*, each tagged with
+  the reason (*Contains eggs*, *Not vegetarian*), and warns on the recipe page itself,
+- gives favourite cuisines and recipe styles a small ranking nudge that never outweighs
+  rescuing food about to expire.
+
+Try it: add **Eggs** under Profile → Allergies and the omelette, scramble and nasi
+goreng bowl move out of the suggestions. The Profile notification switches are honoured
+the same way, except that security alerts about a hub are always delivered.
+
 ## Ask FRISA
 
 `src/lib/assistant.ts` is a deterministic rule-based responder. It reads the live

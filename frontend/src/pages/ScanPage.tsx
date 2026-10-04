@@ -17,9 +17,9 @@ import {
 import type { FoodCategory, FoodItem, StorageLocation } from '@/types'
 import { PageHeader } from '@/components/common/TopHeader'
 import { Button } from '@/components/common/Button'
-import { StatusChip } from '@/components/common/Badges'
-import { FoodAvatar, FoodPhoto } from '@/components/common/FoodAvatar'
-import { CATEGORY_BACKDROP } from '@/lib/foodImagery'
+import { RiskBadge, RiskMeter, StatusChip } from '@/components/common/Badges'
+import { FoodAvatar, FoodPhoto, FoodStage } from '@/components/common/FoodAvatar'
+import { CATEGORY_BACKDROP, guessCategory } from '@/lib/foodImagery'
 import { SegmentedControl } from '@/components/common/Primitives'
 import { FrisaMark } from '@/components/common/FrisaMark'
 import { FOOD_CATEGORIES, STORAGE_LOCATIONS } from '@/data/fridges'
@@ -97,8 +97,14 @@ export function ScanPage() {
   const [phase, setPhase] = useState<Phase>(params.get('tab') === 'manual' ? 'form' : 'ready')
   const [progress, setProgress] = useState(0)
   const [detection, setDetection] = useState<Detection | null>(null)
+  /* What the camera is looking at while it works, shown out of focus. */
+  const [subject, setSubject] = useState<Detection | null>(null)
+  /* The result card lands below the viewfinder; bring it into view. */
+  const resultRef = useRef<HTMLElement>(null)
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
-  const [addedName, setAddedName] = useState('')
+  /* Once the user picks a category, typing the name no longer re-guesses it. */
+  const [categoryTouched, setCategoryTouched] = useState(false)
+  const [added, setAdded] = useState<Pick<FoodItem, 'name' | 'category' | 'quantity' | 'unit' | 'storage'> | null>(null)
 
   useEffect(() => {
     if (params.get('tab')) {
@@ -126,8 +132,10 @@ export function ScanPage() {
       cancelScan()
       setMode(next)
       setDetection(null)
+      setSubject(null)
       setProgress(0)
       setDraft(EMPTY_DRAFT)
+      setCategoryTouched(false)
       setPhase(next === 'manual' ? 'form' : 'ready')
     },
     [cancelScan],
@@ -138,6 +146,7 @@ export function ScanPage() {
     cancelScan()
     setPhase('scanning')
     setProgress(0)
+    setSubject(recognisable ? (mode === 'hub' ? HUB_DETECTION : PHONE_DETECTION) : null)
     const started = Date.now()
     scanTimers.current.tick = window.setInterval(() => {
       const elapsed = Date.now() - started
@@ -150,10 +159,12 @@ export function ScanPage() {
         const found = mode === 'hub' ? HUB_DETECTION : PHONE_DETECTION
         setDetection(found)
         setDraft({ ...found })
+        setCategoryTouched(true)
         setPhase('recognised')
       } else {
         setDetection(null)
         setDraft({ ...EMPTY_DRAFT, expiresAt: isoInDays(2), category: 'Leftover', unit: 'container' })
+        setCategoryTouched(true)
         setPhase('unknown')
       }
     }, 2150)
@@ -178,6 +189,19 @@ export function ScanPage() {
     return riskScore(preview)
   }, [draft, mode])
 
+  useEffect(() => {
+    if (phase !== 'recognised' && phase !== 'unknown' && phase !== 'form' && phase !== 'added') return
+    /* The manual form already sits under the tabs; scrolling would hide them. */
+    if (phase === 'form' && mode === 'manual') return
+    const target = resultRef.current
+    if (!target) return
+    /* Wait a frame so the card has its final height before measuring. */
+    const frame = window.requestAnimationFrame(() =>
+      target.scrollIntoView({ behavior: 'smooth', block: phase === 'recognised' || phase === 'unknown' ? 'center' : 'start' }),
+    )
+    return () => window.cancelAnimationFrame(frame)
+  }, [phase, mode])
+
   const submit = () => {
     if (!draft.name.trim()) {
       toast('Give the item a name first', { tone: 'warning' })
@@ -199,7 +223,7 @@ export function ScanPage() {
       source: mode === 'manual' ? 'manual' : mode === 'phone' ? 'phone' : 'hub',
     }
     addItem(item)
-    setAddedName(item.name)
+    setAdded({ name: item.name, category: item.category, quantity: item.quantity, unit: item.unit, storage: item.storage })
     setPhase('added')
     toast('Inventory updated', { description: `${item.name} was added to ${activeFridge.name}.` })
   }
@@ -219,8 +243,8 @@ export function ScanPage() {
           value={mode}
           onChange={reset}
           options={[
-            { value: 'hub', label: 'FRISA Camera' },
-            { value: 'phone', label: 'Phone Camera' },
+            { value: 'hub', label: 'Hub Camera' },
+            { value: 'phone', label: 'Phone' },
             { value: 'manual', label: 'Manual' },
           ]}
         />
@@ -228,21 +252,25 @@ export function ScanPage() {
 
       <div className="space-y-5 px-5 pt-5">
         {/* Success */}
-        {phase === 'added' ? (
-          <section className="card animate-fade-up overflow-hidden">
-            <div
-              className="p-6 text-center"
-              style={{ background: 'linear-gradient(135deg, #EAF8F1 0%, #FFFFFF 70%)' }}
-            >
-              <span className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-frisa-500 text-white">
-                <CircleCheck className="h-8 w-8" strokeWidth={2.2} aria-hidden />
+        {phase === 'added' && added ? (
+          <section ref={resultRef} className="card animate-fade-up scroll-mt-28 overflow-hidden">
+            <FoodStage name={added.name} category={added.category} className="h-48">
+              <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-1 rounded-full bg-frisa-500 px-2.5 py-1 text-2xs font-bold text-white shadow-pill">
+                <CircleCheck className="h-3.5 w-3.5" strokeWidth={2.6} aria-hidden />
+                Added
               </span>
-              <h2 className="text-lg font-extrabold tracking-tight text-ink">Inventory updated</h2>
-              <p className="mx-auto mt-2 max-w-[270px] text-[13px] leading-relaxed text-ink-muted">
-                {addedName} is now tracked in {activeFridge.name} and synced to every device in your household.
+            </FoodStage>
+            <div className="border-t border-line px-5 pb-1 pt-4 text-center">
+              <h2 className="text-lg font-extrabold tracking-tight text-ink">{added.name} is in your fridge</h2>
+              <p className="mx-auto mt-1.5 max-w-[290px] text-[13px] leading-relaxed text-ink-muted">
+                <span className="num font-semibold text-ink-soft">
+                  {added.quantity} {added.unit}
+                </span>{' '}
+                on the {added.storage.toLowerCase()}, tracked in {activeFridge.name} and synced to every device in your
+                household.
               </p>
             </div>
-            <div className="flex gap-3 border-t border-line p-4">
+            <div className="flex gap-3 p-4">
               <Button variant="outline" size="lg" block onClick={() => reset(mode)}>
                 Add another
               </Button>
@@ -307,6 +335,10 @@ export function ScanPage() {
                   {phase === 'recognised' && detection ? (
                     <span className="animate-pop-in flex h-full w-full items-center justify-center">
                       <FoodPhoto name={detection.name} category={detection.category} eager className="h-[86%] w-[86%]" glyphClassName="h-12 w-12" />
+                    </span>
+                  ) : phase === 'scanning' && subject ? (
+                    <span className="flex h-full w-full items-center justify-center opacity-60 blur-[3px]">
+                      <FoodPhoto name={subject.name} category={subject.category} eager className="h-[80%] w-[80%]" glyphClassName="h-10 w-10" />
                     </span>
                   ) : phase === 'unknown' ? (
                     <CircleHelp className="h-12 w-12 text-white/70" strokeWidth={1.6} aria-hidden />
@@ -390,7 +422,7 @@ export function ScanPage() {
             ) : null}
 
             {phase === 'recognised' && detection ? (
-              <section className="card animate-fade-up overflow-hidden">
+              <section ref={resultRef} className="card animate-fade-up overflow-hidden">
                 <div className="flex items-start gap-3.5 p-4">
                   <FoodAvatar name={detection.name} category={detection.category} size="lg" />
                   <div className="min-w-0 flex-1">
@@ -419,7 +451,7 @@ export function ScanPage() {
             ) : null}
 
             {phase === 'unknown' ? (
-              <section className="card animate-fade-up overflow-hidden">
+              <section ref={resultRef} className="card animate-fade-up overflow-hidden">
                 <div className="flex items-start gap-3 p-4">
                   <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-ember-50 text-ember-600">
                     <TriangleAlert className="h-5 w-5" strokeWidth={2.1} aria-hidden />
@@ -471,7 +503,7 @@ export function ScanPage() {
 
         {/* Confirmation / manual form */}
         {phase === 'form' ? (
-          <section className="animate-fade-up space-y-4">
+          <section ref={resultRef} className="animate-fade-up scroll-mt-28 space-y-4">
             {mode !== 'manual' && detection ? (
               <div className="flex items-center gap-3 rounded-2xl bg-frisa-50 p-3.5">
                 <FrisaMark className="h-9 w-9 shrink-0" />
@@ -487,13 +519,31 @@ export function ScanPage() {
                 <label htmlFor="item-name" className="mb-1.5 block text-[13px] font-bold text-ink">
                   Item name
                 </label>
-                <input
-                  id="item-name"
-                  value={draft.name}
-                  onChange={(event) => setDraft((d) => ({ ...d, name: event.target.value }))}
-                  placeholder="For example, Fresh Milk"
-                  className="h-12 w-full rounded-2xl border border-line bg-mist/50 px-3.5 text-sm font-semibold text-ink placeholder:font-normal placeholder:text-ink-faint focus:border-frisa-400 focus:bg-surface focus:outline-none"
-                />
+                <div className="relative">
+                  {draft.name.trim() ? (
+                    <FoodAvatar
+                      name={draft.name}
+                      category={draft.category}
+                      size="xs"
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2"
+                    />
+                  ) : null}
+                  <input
+                    id="item-name"
+                    value={draft.name}
+                    onChange={(event) => {
+                      const name = event.target.value
+                      /* File the item under its likely category until the user picks one. */
+                      const guess = categoryTouched ? undefined : guessCategory(name)
+                      setDraft((d) => ({ ...d, name, ...(guess ? { category: guess } : {}) }))
+                    }}
+                    placeholder="For example, Fresh Milk"
+                    className={cn(
+                      'h-12 w-full rounded-2xl border border-line bg-mist/50 pr-3.5 text-sm font-semibold text-ink placeholder:font-normal placeholder:text-ink-faint focus:border-frisa-400 focus:bg-surface focus:outline-none',
+                      draft.name.trim() ? 'pl-12' : 'pl-3.5',
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -504,7 +554,10 @@ export function ScanPage() {
                   <select
                     id="item-category"
                     value={draft.category}
-                    onChange={(event) => setDraft((d) => ({ ...d, category: event.target.value as FoodCategory }))}
+                    onChange={(event) => {
+                      setCategoryTouched(true)
+                      setDraft((d) => ({ ...d, category: event.target.value as FoodCategory }))
+                    }}
                     className="h-12 w-full rounded-2xl border border-line bg-mist/50 px-3 text-sm font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
                   >
                     {FOOD_CATEGORIES.map((option) => (
@@ -590,36 +643,49 @@ export function ScanPage() {
                   <label htmlFor="item-value" className="mb-1.5 block text-[13px] font-bold text-ink">
                     Estimated value
                   </label>
-                  <input
-                    id="item-value"
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={draft.value}
-                    onChange={(event) => setDraft((d) => ({ ...d, value: Number(event.target.value) || 0 }))}
-                    className="num h-12 w-full rounded-2xl border border-line bg-mist/50 px-3 text-sm font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
-                  />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-faint">
+                      Rp
+                    </span>
+                    <input
+                      id="item-value"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      step={1000}
+                      value={draft.value}
+                      onChange={(event) => setDraft((d) => ({ ...d, value: Math.max(0, Number(event.target.value) || 0) }))}
+                      className="num h-12 w-full rounded-2xl border border-line bg-mist/50 pl-9 pr-3 text-sm font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3 rounded-2xl bg-mist/60 p-3.5">
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">Predicted waste risk</p>
-                  <p className="num mt-0.5 text-lg font-extrabold text-ink">{previewRisk} / 100</p>
+              <div className="rounded-2xl bg-mist/60 p-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">Predicted waste risk</p>
+                    <p className="num mt-0.5 text-lg font-extrabold text-ink">
+                      {previewRisk}
+                      <span className="text-sm font-semibold text-ink-faint"> / 100</span>
+                    </p>
+                  </div>
+                  <RiskBadge score={previewRisk} size="sm" />
                 </div>
-                <p className="max-w-[52%] text-right text-2xs leading-snug text-ink-muted">
-                  Based on the expiry date, category and {rupiah(draft.value)} of value at stake.
+                <RiskMeter score={previewRisk} className="mt-2.5 h-1.5" />
+                <p className="mt-2 text-2xs leading-snug text-ink-muted">
+                  Based on the expiry date, category and {rupiah(draft.value)} of value at stake. Updates as you edit.
                 </p>
               </div>
             </div>
 
             <div className="flex gap-3">
               {mode !== 'manual' ? (
-                <Button variant="outline" size="lg" block onClick={() => reset(mode)}>
+                <Button variant="outline" size="lg" className="w-[108px] shrink-0" onClick={() => reset(mode)}>
                   Cancel
                 </Button>
               ) : null}
-              <Button size="lg" block onClick={submit}>
+              <Button size="lg" block className="whitespace-nowrap" onClick={submit}>
                 <CircleCheck className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
                 Confirm &amp; Add
               </Button>

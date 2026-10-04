@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
   ChefHat,
@@ -87,7 +87,23 @@ function sceneFor(pathname: string, ctx: { firstName: string; priority: number; 
   }
 }
 
+/* Matches the `stage` breakpoint in tailwind.config.js and index.css. */
+const STAGE_QUERY = '(min-width: 1180px)'
+
+function subscribeStage(onChange: () => void) {
+  const query = window.matchMedia(STAGE_QUERY)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
+}
+
+/** True only when there is room for the side panels, so phones never fetch their art. */
+function useStageWide(): boolean {
+  return useSyncExternalStore(subscribeStage, () => window.matchMedia(STAGE_QUERY).matches, () => false)
+}
+
 export function DesktopStage({ children }: { children: React.ReactNode }) {
+  const wide = useStageWide()
+
   const { pathname } = useLocation()
   const { preferences, priorityItems, activeFridge, savingsFor } = useApp()
   const savings = savingsFor('30d')
@@ -100,119 +116,123 @@ export function DesktopStage({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="stage">
-      <aside className="stage-panel stage-panel-left">
-        <FrisaLogo className="h-[clamp(48px,7vh,68px)] w-auto self-start" />
+      {wide ? (
+        <aside className="stage-panel stage-panel-left">
+          <FrisaLogo className="h-[clamp(48px,7vh,68px)] w-auto self-start" />
 
-        <ul className="mt-6 flex flex-wrap gap-2" aria-hidden>
-          {CHIPS.map((chip) => (
-            <li
-              key={chip}
-              className="rounded-full border border-frisa-200/80 bg-white/70 px-3 py-1 text-2xs font-bold uppercase tracking-[0.14em] text-frisa-700 backdrop-blur"
-            >
-              {chip}
-            </li>
-          ))}
-        </ul>
+          <ul className="mt-6 flex flex-wrap gap-2" aria-hidden>
+            {CHIPS.map((chip) => (
+              <li
+                key={chip}
+                className="rounded-full border border-frisa-200/80 bg-white/70 px-3 py-1 text-2xs font-bold uppercase tracking-[0.14em] text-frisa-700 backdrop-blur"
+              >
+                {chip}
+              </li>
+            ))}
+          </ul>
 
-        <h2 className="mt-6 text-[30px] font-extrabold leading-[1.08] tracking-tight text-ink">
-          Your fridge, finally <span className="text-frisa-600">paying attention.</span>
-        </h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-ink-muted">
-          FRISA is a small camera- and voice-equipped hub that lives with your refrigerator, paired
-          with an app that knows what is inside, warns you before food expires, and turns what you
-          already have into tonight&apos;s meal.
-        </p>
+          <h2 className="mt-6 text-[30px] font-extrabold leading-[1.08] tracking-tight text-ink">
+            Your fridge, finally <span className="text-frisa-600">paying attention.</span>
+          </h2>
+          <p className="mt-4 text-[15px] leading-relaxed text-ink-muted">
+            FRISA is a small camera- and voice-equipped hub that lives with your refrigerator, paired
+            with an app that knows what is inside, warns you before food expires, and turns what you
+            already have into tonight&apos;s meal.
+          </p>
 
-        <ul className="stage-features mt-6 space-y-3.5">
-          {FEATURES.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="flex items-start gap-3">
-              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-frisa-50 text-frisa-600 ring-1 ring-inset ring-frisa-100">
-                <Icon className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-bold text-ink">{title}</span>
-                <span className="block text-[13px] leading-snug text-ink-muted">{body}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+          <ul className="stage-features mt-6 space-y-3.5">
+            {FEATURES.map(({ icon: Icon, title, body }) => (
+              <li key={title} className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-frisa-50 text-frisa-600 ring-1 ring-inset ring-frisa-100">
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-ink">{title}</span>
+                  <span className="block text-[13px] leading-snug text-ink-muted">{body}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
 
-        <figure className="stage-quote mt-7">
-          <Quote className="h-6 w-6 text-ember-300" strokeWidth={2} aria-hidden />
-          <blockquote className="mt-2 text-[19px] font-extrabold leading-snug tracking-tight text-white">
-            {QUOTE}
-          </blockquote>
-          <figcaption className="mt-3 text-2xs font-bold uppercase tracking-[0.2em] text-white/60">
-            The FRISA philosophy
-          </figcaption>
-        </figure>
+          <figure className="stage-quote mt-7">
+            <Quote className="h-6 w-6 text-ember-300" strokeWidth={2} aria-hidden />
+            <blockquote className="mt-2 text-[19px] font-extrabold leading-snug tracking-tight text-white">
+              {QUOTE}
+            </blockquote>
+            <figcaption className="mt-3 text-2xs font-bold uppercase tracking-[0.2em] text-white/60">
+              The FRISA philosophy
+            </figcaption>
+          </figure>
 
-        <p className="stage-tagline mt-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-ink-faint">
-          Know your food. Waste less.
-        </p>
-      </aside>
+          <p className="stage-tagline mt-5 text-[11px] font-semibold uppercase tracking-[0.22em] text-ink-faint">
+            Know your food. Waste less.
+          </p>
+        </aside>
+      ) : null}
 
       {children}
 
-      <aside className="stage-panel stage-panel-right" aria-hidden>
-        <div className="relative flex w-full flex-col items-center">
-          {/* Ambient glow the character stands in front of. */}
-          <div className="stage-halo" />
+      {wide ? (
+        <aside className="stage-panel stage-panel-right" aria-hidden>
+          <div className="relative flex w-full flex-col items-center">
+            {/* Ambient glow the character stands in front of. */}
+            <div className="stage-halo" />
 
-          <div key={scene.line} className="stage-bubble animate-bubble-in">
-            <p className="text-[14px] font-semibold leading-snug text-ink">{scene.line}</p>
-          </div>
-
-          <div className="stage-mascot relative mt-5 w-full">
-            <div className="absolute inset-x-0 top-0 flex h-full animate-float items-end justify-center">
-              <Mascot key={scene.pose} pose={scene.pose} priority className="h-full w-auto animate-pop-in drop-shadow-mascot" />
+            <div key={scene.line} className="stage-bubble animate-bubble-in">
+              <p className="text-[14px] font-semibold leading-snug text-ink">{scene.line}</p>
             </div>
 
-            {/* Live numbers from the same state the phone renders, so the stage is
-                never out of step with the demo. */}
-            <StatChip
-              className="-left-4 top-[14%] animate-float [animation-delay:-1.2s]"
-              icon={Flame}
-              tone="ember"
-              value={String(priorityItems.length)}
-              label="to use soon"
-            />
-            <StatChip
-              className="-right-8 top-[30%] animate-float [animation-delay:-2.4s]"
-              icon={Leaf}
-              tone="green"
-              value={kg(savings.foodSavedKg)}
-              label="saved · 30 days"
-            />
-            <StatChip
-              className="-left-6 bottom-[24%] animate-float [animation-delay:-0.6s]"
-              icon={CloudSun}
-              tone="sky"
-              value={`${savings.co2Kg.toFixed(1)} kg`}
-              label="CO₂ avoided"
-            />
-            <StatChip
-              className="-right-6 bottom-[7%] animate-float [animation-delay:-1.8s]"
-              icon={activeFridge.online ? Cpu : WifiOff}
-              tone={activeFridge.online ? 'green' : 'plain'}
-              value={activeFridge.online ? 'Online' : 'Offline'}
-              label={activeFridge.name}
-            />
-          </div>
+            <div className="stage-mascot relative mt-5 w-full">
+              <div className="absolute inset-x-0 top-0 flex h-full animate-float items-end justify-center">
+                <Mascot key={scene.pose} pose={scene.pose} priority className="h-full w-auto animate-pop-in drop-shadow-mascot" />
+              </div>
 
-          <div className="stage-ground" />
+              {/* Live numbers from the same state the phone renders, so the stage is
+                  never out of step with the demo. */}
+              <StatChip
+                className="-left-4 top-[14%] animate-float [animation-delay:-1.2s]"
+                icon={Flame}
+                tone="ember"
+                value={String(priorityItems.length)}
+                label="to use soon"
+              />
+              <StatChip
+                className="-right-8 top-[30%] animate-float [animation-delay:-2.4s]"
+                icon={Leaf}
+                tone="green"
+                value={kg(savings.foodSavedKg)}
+                label="saved · 30 days"
+              />
+              <StatChip
+                className="-left-6 bottom-[24%] animate-float [animation-delay:-0.6s]"
+                icon={CloudSun}
+                tone="sky"
+                value={`${savings.co2Kg.toFixed(1)} kg`}
+                label="CO₂ avoided"
+              />
+              <StatChip
+                className="-right-6 bottom-[7%] animate-float [animation-delay:-1.8s]"
+                icon={activeFridge.online ? Cpu : WifiOff}
+                tone={activeFridge.online ? 'green' : 'plain'}
+                value={activeFridge.online ? 'Online' : 'Offline'}
+                label={activeFridge.name}
+              />
+            </div>
 
-          <div className="mt-6 flex items-center gap-2 rounded-full border border-line bg-white/80 py-2 pl-2.5 pr-4 shadow-card backdrop-blur">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-frisa-500 text-white">
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.2} />
-            </span>
-            <span className="text-[13px] font-semibold text-ink-soft">
-              Meet <span className="font-extrabold text-frisa-700">Frisa</span> · tap the phone to explore
-            </span>
-            <Mic className="ml-1 h-3.5 w-3.5 text-ink-faint" strokeWidth={2.2} />
+            <div className="stage-ground" />
+
+            <div className="mt-6 flex items-center gap-2 rounded-full border border-line bg-white/80 py-2 pl-2.5 pr-4 shadow-card backdrop-blur">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-frisa-500 text-white">
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={2.2} />
+              </span>
+              <span className="text-[13px] font-semibold text-ink-soft">
+                Meet <span className="font-extrabold text-frisa-700">Frisa</span> · tap the phone to explore
+              </span>
+              <Mic className="ml-1 h-3.5 w-3.5 text-ink-faint" strokeWidth={2.2} />
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      ) : null}
     </div>
   )
 }

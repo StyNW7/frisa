@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useReducer, type ReactNode } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react'
 import type {
   ActivityEvent,
   ActivityKind,
@@ -87,6 +87,16 @@ type Action =
   | { type: 'set-onboarded' }
   | { type: 'set-setup-done' }
   | { type: 'reset-demo'; state: AppState }
+
+/** A new quantity with value and weight scaled to match it. */
+function withQuantity(item: FoodItem, quantity: number): Pick<FoodItem, 'quantity' | 'value' | 'weightKg'> {
+  const ratio = item.quantity > 0 ? Math.max(0, quantity) / item.quantity : 0
+  return {
+    quantity,
+    value: Math.round(item.value * ratio),
+    weightKg: Math.round(item.weightKg * ratio * 1000) / 1000,
+  }
+}
 
 function mapFridge(state: AppState, fridgeId: string, fn: (fridge: Fridge) => Fridge): AppState {
   return { ...state, fridges: state.fridges.map((f) => (f.id === fridgeId ? fn(f) : f)) }
@@ -182,6 +192,9 @@ function reducer(state: AppState, action: Action): AppState {
                   ...i,
                   quantity: i.quantity + action.item.quantity,
                   initialQuantity: i.initialQuantity + action.item.quantity,
+                  /* The new pack adds its own worth, so savings and risk stay honest. */
+                  value: i.value + action.item.value,
+                  weightKg: i.weightKg + action.item.weightKg,
                   expiresAt: action.item.expiresAt,
                 }
               : i,
@@ -192,16 +205,21 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'update-item':
       return mapItems(state, action.fridgeId, (items) =>
-        items.map((i) => (i.id === action.id ? { ...i, ...action.patch } : i)),
+        items.map((i) => {
+          if (i.id !== action.id) return i
+          /* `value` and `weightKg` describe the quantity held, so a new quantity
+             rescales them unless the patch sets them explicitly. */
+          const next = action.patch.quantity
+          if (next == null || next === i.quantity || i.quantity <= 0) return { ...i, ...action.patch }
+          return { ...i, ...withQuantity(i, next), ...action.patch }
+        }),
       )
 
     case 'consume-item':
       return mapItems(state, action.fridgeId, (items) =>
         items
           .map((i) =>
-            i.id === action.id
-              ? { ...i, quantity: Math.round((i.quantity - action.portion) * 1000) / 1000 }
-              : i,
+            i.id === action.id ? { ...i, ...withQuantity(i, Math.round((i.quantity - action.portion) * 1000) / 1000) } : i,
           )
           .filter((i) => i.quantity > 0.0001),
       )
@@ -377,6 +395,14 @@ export interface AppContextValue extends AppState {
   resetDemo: () => void
 }
 
+/** Which Profile switch controls each kind of notification. */
+const NOTIFICATION_SWITCH: Record<NotificationCategory, keyof UserPreference['notifications']> = {
+  Priority: 'expiry',
+  Recipes: 'recipes',
+  Inventory: 'inventory',
+  System: 'device',
+}
+
 export const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -420,7 +446,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  /* Read through a ref so `notify` keeps a stable identity for its callers. */
+  const notificationPrefs = useRef(state.preferences.notifications)
+  notificationPrefs.current = state.preferences.notifications
+
   const notify = useCallback<AppContextValue['notify']>((category, title, body, opts) => {
+    /* Profile switches decide what reaches the inbox. Security alerts about a hub
+       are the one exception: switching off device alerts must not hide them. */
+    const allowed = notificationPrefs.current[NOTIFICATION_SWITCH[category]]
+    if (!allowed && !(category === 'System' && opts?.high)) return
     dispatch({
       type: 'push-notification',
       notification: {

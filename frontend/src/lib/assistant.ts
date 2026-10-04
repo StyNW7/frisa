@@ -117,15 +117,30 @@ export function answerQuestion(rawQuery: string, ctx: AssistantContext): string 
 
   /* A specific food was named - answer from stock first. */
   if (named.length > 0 && (asksQuantity || !/expir|cook|recipe|save|shopping/.test(query))) {
-    const answers = named.slice(0, 2).map((item) => {
+    const lead = isYesNo ? 'Yes. ' : ''
+
+    if (named.length === 1) {
+      const [item] = named
       const days = daysUntil(item.expiresAt)
       const risk = riskScore(item)
       const tail = item.shelfStable
         ? 'It has a long shelf life.'
         : `It expires ${expiryPhrase(days).toLowerCase()}${risk >= 60 ? `, and the waste risk is ${risk} out of 100` : ''}.`
-      return `${isYesNo ? 'Yes. ' : ''}You have ${formatQuantity(item)} of ${item.name.toLowerCase()} on the ${item.storage.toLowerCase()}. ${tail}`
+      return `${lead}You have ${formatQuantity(item)} of ${item.name.toLowerCase()} on the ${item.storage.toLowerCase()}. ${tail}`
+    }
+
+    /* Several matches (two kinds of milk, say): one line each, then which to open first. */
+    const byRisk = [...named].sort((a, b) => riskScore(b) - riskScore(a))
+    const shown = byRisk.slice(0, 3)
+    const lines = shown.map((item) => {
+      const when = item.shelfStable ? 'long shelf life' : `expires ${expiryPhrase(daysUntil(item.expiresAt)).toLowerCase()}`
+      /* Product names keep their own casing here: "Ultra Milk Full Cream 1L", not "1l". */
+      return `${formatQuantity(item)} of ${item.name} (${when})`
     })
-    return answers.join(' ')
+    const more = named.length > shown.length ? ` There are ${named.length - shown.length} more.` : ''
+    const first = byRisk[0]
+    const advice = isPriority(first) ? ` Use the ${first.name} first.` : ''
+    return `${lead}You have ${named.length} matching items: ${listNames(lines)}.${more}${advice}`
   }
 
   const knownFood = mentionsKnownFood(rawQuery)
@@ -149,12 +164,16 @@ export function answerQuestion(rawQuery: string, ctx: AssistantContext): string 
     const priorityLine = best.priorityItems.length
       ? ` It uses ${listNames(best.priorityItems.map((i) => i.name.toLowerCase()))}, which should be used soon.`
       : ''
-    return `I would cook ${best.name}. It matches ${best.matchScore}% of what you already have, takes ${best.minutes} minutes, and you are only missing ${best.missing.length === 0 ? 'nothing' : listNames(best.missing.map((m) => m.toLowerCase()))}.${priorityLine}`
+    const missingLine =
+      best.missing.length === 0
+        ? 'and you have everything it needs'
+        : `and you are only missing ${listNames(best.missing.map((m) => m.toLowerCase()))}`
+    return `I would cook ${best.name}. It matches ${best.matchScore}% of what you already have, takes ${best.minutes} minutes, ${missingLine}.${priorityLine}`
   }
 
   /* Savings */
   if (/save|saving|money|spend|budget|rupiah|hemat|impact|co2|carbon/.test(query)) {
-    return `This month you have saved ${rupiah(savings.moneySaved)} by using ${savings.foodSavedKg.toFixed(1)} kg of food before it expired. That is ${savings.itemsRescued} items rescued and roughly ${savings.co2Kg} kg CO2e avoided.`
+    return `This month you have saved ${rupiah(savings.moneySaved)} by using ${savings.foodSavedKg.toFixed(1)} kg of food before it expired. That is ${savings.itemsRescued} items rescued and roughly ${savings.co2Kg} kg CO₂e avoided.`
   }
 
   /* Shopping */

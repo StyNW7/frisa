@@ -1,21 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ChefHat, Heart, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ChefHat, ChevronDown, Heart, ShieldCheck, SlidersHorizontal, Sparkles, X } from 'lucide-react'
 import { PageHeader } from '@/components/common/TopHeader'
 import { FilterPills, SectionHeader } from '@/components/common/Primitives'
 import { RecipeHeroCard, RecipeRow } from '@/components/recipes/RecipeCard'
 import { FoodAvatar } from '@/components/common/FoodAvatar'
 import { EmptyState } from '@/components/common/Feedback'
 import { StatusChip } from '@/components/common/Badges'
-import { useApp } from '@/hooks/useApp'
-import { deriveRecipes, sortRecommended } from '@/lib/recipes'
-import { RECIPES, RECIPE_CATEGORIES, type RecipeCategory } from '@/data/recipes'
-import { expiryPhrase, daysUntil, riskScore, rupiah } from '@/lib/utils'
+import { useApp, useRecipeRanking } from '@/hooks/useApp'
+import type { ScreenedRecipe } from '@/lib/recipes'
+import { verdictReason } from '@/lib/dietary'
+import { RECIPE_CATEGORIES, type RecipeCategory } from '@/data/recipes'
+import { cn, expiryPhrase, daysUntil, pluralize, riskScore, rupiah } from '@/lib/utils'
 
 export function RecipesPage() {
-  const { items, priorityItems, favorites } = useApp()
+  const { items, priorityItems, favorites, preferences } = useApp()
+  const { suitable, filtered } = useRecipeRanking()
   const [params, setParams] = useSearchParams()
   const [category, setCategory] = useState<RecipeCategory>('Recommended')
+  const [showFiltered, setShowFiltered] = useState(false)
 
   const focusId = params.get('focus')
   const focusItem = focusId ? items.find((i) => i.id === focusId) : undefined
@@ -32,26 +35,36 @@ export function RecipesPage() {
     setParams(next, { replace: true })
   }, [params, setParams])
 
-  const derived = useMemo(() => sortRecommended(deriveRecipes(RECIPES, items)), [items])
+  /* The same narrowing applies to the recipes held back by preferences, so the
+     "hidden" count always describes the view the user is looking at. */
+  const narrow = useCallback(
+    (recipes: ScreenedRecipe[]) => {
+      let out = recipes
+      if (focusItem) {
+        out = out.filter((recipe) => recipe.ingredients.some((ing) => ing.foodId === focusItem.id))
+      }
+      switch (category) {
+        case 'Use Soon':
+          return out.filter((r) => r.priorityItems.length > 0)
+        case 'Quick Meals':
+          return [...out].filter((r) => r.minutes <= 20).sort((a, b) => a.minutes - b.minutes)
+        case 'High Match':
+          return [...out].filter((r) => r.matchScore >= 90).sort((a, b) => b.matchScore - a.matchScore)
+        case 'Favorites':
+          return out.filter((r) => favorites.includes(r.id))
+        default:
+          return out
+      }
+    },
+    [category, favorites, focusItem],
+  )
 
-  const list = useMemo(() => {
-    let out = derived
-    if (focusItem) {
-      out = out.filter((recipe) => recipe.ingredients.some((ing) => ing.foodId === focusItem.id))
-    }
-    switch (category) {
-      case 'Use Soon':
-        return out.filter((r) => r.priorityItems.length > 0)
-      case 'Quick Meals':
-        return [...out].filter((r) => r.minutes <= 20).sort((a, b) => a.minutes - b.minutes)
-      case 'High Match':
-        return [...out].filter((r) => r.matchScore >= 90).sort((a, b) => b.matchScore - a.matchScore)
-      case 'Favorites':
-        return out.filter((r) => favorites.includes(r.id))
-      default:
-        return out
-    }
-  }, [derived, category, favorites, focusItem])
+  const list = useMemo(() => narrow(suitable), [narrow, suitable])
+  const hidden = useMemo(() => narrow(filtered), [narrow, filtered])
+  const activeFilters = [
+    preferences.diet !== 'No restriction' ? preferences.diet : null,
+    ...preferences.allergies.map((a) => `No ${a.toLowerCase()}`),
+  ].filter(Boolean) as string[]
 
   const [hero, ...rest] = list
   const rescueTotal = priorityItems.reduce((sum, item) => sum + item.value, 0)
@@ -80,17 +93,17 @@ export function RecipesPage() {
               </div>
             </div>
 
-            <ul className="mt-3.5 flex flex-wrap gap-2">
+            <ul className="mt-3.5 grid grid-cols-2 gap-2">
               {priorityItems.slice(0, 4).map((item) => (
                 <li key={item.id}>
                   <button
                     type="button"
                     onClick={() => setParams({ focus: item.id })}
-                    className="flex items-center gap-2 rounded-2xl bg-white px-2.5 py-2 shadow-card transition-transform active:scale-95"
+                    className="flex w-full items-center gap-2 rounded-2xl bg-white p-2 shadow-card transition-transform active:scale-95"
                   >
                     <FoodAvatar name={item.name} category={item.category} size="sm" />
-                    <span className="text-left">
-                      <span className="block text-xs font-bold leading-tight text-ink">{item.name}</span>
+                    <span className="min-w-0 text-left">
+                      <span className="block truncate text-xs font-bold leading-tight text-ink">{item.name}</span>
                       <span className="num block text-[10px] font-semibold text-ember-700">
                         Risk {riskScore(item)} · {expiryPhrase(daysUntil(item.expiresAt))}
                       </span>
@@ -133,7 +146,9 @@ export function RecipesPage() {
               description={
                 category === 'Favorites'
                   ? 'Tap the heart on any recipe and it will be waiting for you here.'
-                  : 'Add more ingredients or adjust your preferences and FRISA will find something.'
+                  : hidden.length > 0
+                    ? 'Every match here clashes with your diet or allergies. You can still look at them below.'
+                    : 'Add more ingredients or adjust your preferences and FRISA will find something.'
               }
             />
           </div>
@@ -166,6 +181,47 @@ export function RecipesPage() {
             ) : null}
           </>
         )}
+
+        {hidden.length > 0 ? (
+          <section className="overflow-hidden rounded-3xl border border-line bg-surface">
+            <button
+              type="button"
+              aria-expanded={showFiltered}
+              onClick={() => setShowFiltered((open) => !open)}
+              className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-mist/50"
+            >
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-mist text-ink-soft">
+                <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-bold text-ink">
+                  {pluralize(hidden.length, 'recipe')} hidden by your preferences
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-ink-muted">
+                  {activeFilters.join(' · ')}
+                </span>
+              </span>
+              <ChevronDown
+                className={cn('h-[18px] w-[18px] shrink-0 text-ink-faint transition-transform duration-200', showFiltered && 'rotate-180')}
+                strokeWidth={2.2}
+                aria-hidden
+              />
+            </button>
+            {showFiltered ? (
+              <div className="animate-fade-up space-y-3 border-t border-line bg-mist/30 p-3">
+                {hidden.map((recipe) => (
+                  <RecipeRow key={recipe.id} recipe={recipe} warning={verdictReason(recipe.verdict)} />
+                ))}
+                <Link
+                  to="/profile"
+                  className="block rounded-2xl py-2 text-center text-xs font-bold text-frisa-700 transition-colors hover:bg-frisa-50"
+                >
+                  Change diet and allergies
+                </Link>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {priorityItems.length === 0 ? (
           <section className="flex items-start gap-3 rounded-3xl border border-frisa-100 bg-frisa-50 p-4">

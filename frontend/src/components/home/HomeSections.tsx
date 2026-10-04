@@ -22,6 +22,8 @@ import type { ActivityKind } from '@/types'
 import { SectionHeader } from '@/components/common/Primitives'
 import { useApp, useUi } from '@/hooks/useApp'
 import { cn, formatEventTime, kg, rupiah } from '@/lib/utils'
+import { FoodAvatar } from '@/components/common/FoodAvatar'
+import { matchFoodPhoto } from '@/lib/foodImagery'
 
 /* -------------------------------------------------------------------------- */
 /*  Quick actions                                                              */
@@ -35,7 +37,7 @@ export function QuickActions() {
     {
       icon: ScanLine,
       label: 'Scan Food',
-      hint: 'Use the hub camera',
+      hint: 'Hub camera',
       onClick: () => navigate('/scan'),
       tone: 'green',
     },
@@ -49,14 +51,14 @@ export function QuickActions() {
     {
       icon: PencilLine,
       label: 'Add Manually',
-      hint: 'Type the details',
+      hint: 'Type details',
       onClick: () => navigate('/scan?tab=manual'),
       tone: 'green',
     },
     {
       icon: ShoppingBasket,
       label: 'Shopping List',
-      hint: 'Avoid overbuying',
+      hint: 'No double buys',
       onClick: () => navigate('/shopping'),
       tone: 'orange',
     },
@@ -140,7 +142,7 @@ export function SavingsSummaryCard() {
         <div className="flex items-center gap-2 border-t border-line bg-frisa-50/60 px-4 py-3">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-frisa-600" strokeWidth={2.4} aria-hidden />
           <p className="text-2xs font-semibold text-frisa-800">
-            Estimated {summary.co2Kg} kg CO2e avoided this month
+            Estimated {summary.co2Kg} kg CO₂e avoided this month
           </p>
         </div>
       </div>
@@ -163,6 +165,8 @@ const ACTIVITY_ICON: Record<ActivityKind, { icon: LucideIcon; tone: string }> = 
   removed: { icon: Trash2, tone: 'bg-mist text-ink-soft' },
 }
 
+const FOOD_EVENTS = new Set<ActivityKind>(['added', 'updated', 'consumed', 'flagged', 'wasted', 'removed'])
+
 export function RecentActivity({ limit = 5 }: { limit?: number }) {
   const { activity } = useApp()
   const rows = activity.slice(0, limit)
@@ -174,11 +178,27 @@ export function RecentActivity({ limit = 5 }: { limit?: number }) {
       <div className="card divide-y divide-line overflow-hidden">
         {rows.map((event) => {
           const { icon: Icon, tone } = ACTIVITY_ICON[event.kind]
+          /* Events about a food show the food itself, with the action as a badge. */
+          const food = FOOD_EVENTS.has(event.kind) ? matchFoodPhoto(event.title) : undefined
           return (
             <div key={event.id} className="flex items-start gap-3 px-4 py-3">
-              <span className={cn('mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', tone)}>
-                <Icon className="h-4 w-4" strokeWidth={2.1} aria-hidden />
-              </span>
+              {food ? (
+                <span className="relative mt-0.5 shrink-0">
+                  <FoodAvatar name={event.title} size="xs" />
+                  <span
+                    className={cn(
+                      'absolute -bottom-1 -right-1 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full ring-2 ring-white',
+                      tone,
+                    )}
+                  >
+                    <Icon className="h-2.5 w-2.5" strokeWidth={2.6} aria-hidden />
+                  </span>
+                </span>
+              ) : (
+                <span className={cn('mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', tone)}>
+                  <Icon className="h-4 w-4" strokeWidth={2.1} aria-hidden />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold leading-snug text-ink">{event.title}</p>
                 {event.detail ? <p className="mt-0.5 text-xs text-ink-muted">{event.detail}</p> : null}

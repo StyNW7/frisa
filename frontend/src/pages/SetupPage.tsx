@@ -12,6 +12,7 @@ import {
   Power,
   Refrigerator,
   TriangleAlert,
+  User,
   Users,
   Utensils,
   Wifi,
@@ -20,6 +21,7 @@ import {
 import { Button } from '@/components/common/Button'
 import { PlainAppShell } from '@/components/common/MobileAppShell'
 import { FrisaMark } from '@/components/common/FrisaMark'
+import { Mascot } from '@/components/common/Mascot'
 import { StatusChip } from '@/components/common/Badges'
 import { ALLERGY_OPTIONS, CUISINE_OPTIONS, DIET_OPTIONS, RECIPE_PREF_OPTIONS } from '@/data/seed'
 import { PairingFlow } from '@/components/device/PairingFlow'
@@ -88,6 +90,7 @@ export function SetupPage() {
   const { toast } = useToast()
 
   const homeHub = fridges.find((f) => f.id === 'home')!
+  const syncedCount = homeHub.items.length
 
   const [step, setStep] = useState(0)
   const [fridgeName, setFridgeName] = useState('Home Fridge')
@@ -157,16 +160,17 @@ export function SetupPage() {
             aria-hidden
           />
           <div className="relative animate-fade-up">
-            <span className="relative mx-auto mb-7 flex h-24 w-24 items-center justify-center rounded-[28px] bg-white/10 ring-1 ring-inset ring-white/20">
-              <span className="absolute inset-0 animate-pulse-ring rounded-[28px] bg-white/20" aria-hidden />
-              <FrisaMark className="h-14 w-14" tone="white" />
+            <span className="relative mx-auto mb-5 flex h-[220px] w-[220px] items-end justify-center">
+              <span className="absolute inset-6 animate-pulse-ring rounded-full bg-white/15" aria-hidden />
+              <span className="absolute inset-8 rounded-full bg-white/10 blur-xl" aria-hidden />
+              <Mascot pose="happy" priority className="relative h-full w-auto animate-float drop-shadow-mascot" />
             </span>
             <h1 className="text-[28px] font-extrabold leading-tight tracking-tight">FRISA is Ready</h1>
             <p className="mx-auto mt-3 max-w-[280px] text-sm leading-relaxed text-white/80">
-              {fridgeName} is connected and synced. FRISA is already watching 16 items for you.
+              {fridgeName} is connected and synced. FRISA is already watching {syncedCount} items for you.
             </p>
 
-            <ul className="mt-7 flex flex-wrap items-center justify-center gap-2">
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
               <StatusChip tone="onGreen" icon={CircleCheck}>
                 Hub paired
               </StatusChip>
@@ -176,7 +180,7 @@ export function SetupPage() {
               <StatusChip tone="onGreen" icon={CircleCheck}>
                 Preferences saved
               </StatusChip>
-            </ul>
+            </div>
           </div>
 
           <div className="relative mt-12 w-full">
@@ -269,12 +273,31 @@ export function SetupPage() {
             <div className="hide-scrollbar flex-1 overflow-y-auto px-5 pb-4">
               {step === 0 ? (
                 <section key="s0" className="animate-fade-up space-y-5 pt-2">
-                  <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
-                    <Refrigerator className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
-                    <p className="text-[13px] leading-relaxed text-frisa-800">
-                      Give this refrigerator a name. You can connect more fridges later and switch between them at any
-                      time.
-                    </p>
+                  {/* A live preview of how the fridge will appear across the app. */}
+                  <div className="relative overflow-hidden rounded-[28px] border border-frisa-100 bg-gradient-to-br from-frisa-50 via-white to-white p-5">
+                    <span className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-frisa-100/70 blur-2xl" aria-hidden />
+                    <div className="relative flex items-end gap-3">
+                      <div className="min-w-0 flex-1 pb-1">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-frisa-600">Appears as</p>
+                        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white p-3 shadow-card ring-1 ring-line">
+                          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-frisa-50 text-frisa-600">
+                            <Refrigerator className="h-5 w-5" strokeWidth={2} aria-hidden />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-[15px] font-bold leading-tight text-ink">
+                              {fridgeName.trim() || 'Your fridge'}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-ink-muted">
+                              {homeHub.location} · FRISA Hub
+                            </span>
+                          </span>
+                        </div>
+                        <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+                          You can connect more fridges later and switch between them at any time.
+                        </p>
+                      </div>
+                      <Mascot pose="hi" priority className="-mb-5 -mr-3 h-[136px] w-auto shrink-0 drop-shadow-mascot" />
+                    </div>
                   </div>
 
                   <div>
@@ -287,14 +310,22 @@ export function SetupPage() {
                       onChange={(event) => setFridgeName(event.target.value)}
                       className="h-14 w-full rounded-2xl border border-line bg-mist/50 px-4 text-[15px] font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
                       placeholder="Home Fridge"
+                      maxLength={32}
+                      autoComplete="off"
                     />
                     <div className="mt-3 flex flex-wrap gap-2">
                       {['Home Fridge', 'Kitchen Fridge', 'Apartment Fridge'].map((suggestion) => (
                         <button
                           key={suggestion}
                           type="button"
+                          aria-pressed={fridgeName === suggestion}
                           onClick={() => setFridgeName(suggestion)}
-                          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:border-frisa-200 hover:text-frisa-700"
+                          className={cn(
+                            'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+                            fridgeName === suggestion
+                              ? 'border-frisa-500 bg-frisa-50 text-frisa-700'
+                              : 'border-line text-ink-muted hover:border-frisa-200 hover:text-frisa-700',
+                          )}
                         >
                           {suggestion}
                         </button>
@@ -492,9 +523,36 @@ export function SetupPage() {
 
               {step === 2 ? (
                 <section key="s2" className="animate-fade-up space-y-5 pt-2">
-                  <div className="flex items-start gap-3 rounded-3xl bg-frisa-50 p-4">
-                    <Users className="mt-0.5 h-5 w-5 shrink-0 text-frisa-600" strokeWidth={2} aria-hidden />
-                    <p className="text-[13px] leading-relaxed text-frisa-800">
+                  <div className="relative overflow-hidden rounded-[28px] border border-frisa-100 bg-gradient-to-br from-frisa-50 via-white to-white p-5">
+                    <span className="pointer-events-none absolute -bottom-14 -left-12 h-40 w-40 rounded-full bg-ember-100/60 blur-2xl" aria-hidden />
+                    <div className="relative flex items-center" aria-hidden>
+                      {Array.from({ length: Math.min(members, 6) }, (_, i) => (
+                        <span
+                          key={i}
+                          className={cn(
+                            'inline-flex h-11 w-11 animate-pop-in items-center justify-center rounded-full ring-4 ring-white',
+                            i % 3 === 0
+                              ? 'bg-frisa-500 text-white'
+                              : i % 3 === 1
+                                ? 'bg-ember-400 text-white'
+                                : 'bg-frisa-100 text-frisa-700',
+                            i > 0 && '-ml-3',
+                          )}
+                        >
+                          <User className="h-5 w-5" strokeWidth={2.2} />
+                        </span>
+                      ))}
+                      {members > 6 ? (
+                        <span className="-ml-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink text-xs font-bold text-white ring-4 ring-white">
+                          +{members - 6}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="relative mt-4 text-[15px] font-bold leading-snug text-ink">
+                      {household.trim() || 'Your household'} · {members} {members === 1 ? 'person' : 'people'}
+                    </p>
+                    <p className="relative mt-1 flex items-start gap-2 text-xs leading-relaxed text-ink-muted">
+                      <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-frisa-600" strokeWidth={2.2} aria-hidden />
                       Household size helps FRISA estimate how quickly food is normally consumed.
                     </p>
                   </div>
@@ -507,6 +565,8 @@ export function SetupPage() {
                       id="household"
                       value={household}
                       onChange={(event) => setHousehold(event.target.value)}
+                      maxLength={40}
+                      autoComplete="off"
                       className="h-14 w-full rounded-2xl border border-line bg-mist/50 px-4 text-[15px] font-semibold text-ink focus:border-frisa-400 focus:bg-surface focus:outline-none"
                     />
                   </div>
@@ -522,7 +582,9 @@ export function SetupPage() {
                       >
                         <Minus className="h-4 w-4" strokeWidth={2.4} />
                       </button>
-                      <span className="num text-2xl font-extrabold text-ink">{members}</span>
+                      <span className="num text-2xl font-extrabold text-ink" aria-live="polite">
+                        {members}
+                      </span>
                       <button
                         type="button"
                         aria-label="Add one member"

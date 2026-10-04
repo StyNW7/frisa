@@ -221,7 +221,7 @@ export const INSIGHT_DATA: Record<PeriodKey, PeriodData> = {
       {
         id: '3m-4',
         icon: 'leaf',
-        title: 'About 35.7 kg CO2e avoided',
+        title: 'About 35.7 kg CO₂e avoided',
         body: 'Estimated from the food that was eaten instead of discarded. Treat it as an indication of direction, not a certified figure.',
         tone: 'neutral',
       },

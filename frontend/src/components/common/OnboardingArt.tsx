@@ -1,24 +1,16 @@
-import {
-  Apple,
-  ArrowRight,
-  ChefHat,
-  Drumstick,
-  Egg,
-  Leaf,
-  Milk,
-  Salad,
-  Smartphone,
-  Wifi,
-} from 'lucide-react'
+import { ArrowDown, Smartphone, Sparkles, Wifi } from 'lucide-react'
+import type { FoodCategory } from '@/types'
+import { FoodAvatar, FoodPhoto } from '@/components/common/FoodAvatar'
 import { FrisaMark } from '@/components/common/FrisaMark'
 import { Mascot } from '@/components/common/Mascot'
 import { cn } from '@/lib/utils'
 
+/* The art grows with the screen so tall phones are not left with an empty band. */
 function Stage({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
       className={cn(
-        'relative h-[248px] w-full overflow-hidden rounded-[28px] border border-frisa-100 bg-gradient-to-b from-frisa-50 to-white',
+        'relative h-[clamp(248px,38dvh,330px)] w-full overflow-hidden rounded-[28px] border border-frisa-100 bg-gradient-to-b from-frisa-50 via-[#F5FBF8] to-white',
         className,
       )}
       aria-hidden
@@ -30,46 +22,49 @@ function Stage({ children, className }: { children: React.ReactNode; className?:
   )
 }
 
-function FridgeBody({ className }: { className?: string }) {
+function Chip({
+  className,
+  icon: Icon,
+  label,
+}: {
+  className?: string
+  icon: typeof Wifi
+  label: string
+}) {
   return (
-    <div className={cn('relative flex h-[142px] w-[92px] flex-col rounded-2xl bg-white shadow-card', className)}>
-      <div className="flex-[0.38] rounded-t-2xl border-b-2 border-frisa-50 bg-gradient-to-b from-white to-frisa-50/60" />
-      <div className="flex-1 rounded-b-2xl bg-gradient-to-b from-white to-frisa-50/40" />
-      <span className="absolute right-2 top-[38%] h-6 w-[3px] rounded-full bg-frisa-200" />
-      <span className="absolute right-2 top-[52%] h-8 w-[3px] rounded-full bg-frisa-200" />
+    <div className={cn('absolute inline-flex items-center gap-1.5 rounded-2xl bg-white px-2.5 py-2 shadow-card', className)}>
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-frisa-50 text-frisa-600">
+        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+      </span>
+      <span className="text-[11px] font-bold text-ink">{label}</span>
     </div>
   )
 }
 
-function Floating({
+/** A floating label with the food's photo, as the inventory would list it. */
+function FoodChip({
   className,
-  icon: Icon,
-  label,
-  tone = 'green',
+  name,
+  category,
+  detail,
+  style,
 }: {
   className?: string
-  icon: typeof Leaf
-  label: string
-  tone?: 'green' | 'orange' | 'plain'
+  name: string
+  category: FoodCategory
+  detail: string
+  style?: React.CSSProperties
 }) {
   return (
     <div
-      className={cn(
-        'absolute inline-flex items-center gap-1.5 rounded-2xl bg-white px-2.5 py-2 shadow-card',
-        className,
-      )}
+      className={cn('absolute z-10 inline-flex animate-bubble-in items-center gap-2 rounded-2xl bg-white/95 py-1.5 pl-1.5 pr-3 shadow-lift backdrop-blur-sm', className)}
+      style={style}
     >
-      <span
-        className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-lg',
-          tone === 'green' && 'bg-frisa-50 text-frisa-600',
-          tone === 'orange' && 'bg-ember-50 text-ember-600',
-          tone === 'plain' && 'bg-mist text-ink-soft',
-        )}
-      >
-        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+      <FoodAvatar name={name} category={category} size="xs" />
+      <span className="leading-tight">
+        <span className="block text-[11px] font-bold text-ink">{name}</span>
+        <span className="block text-[10px] font-semibold text-ink-muted">{detail}</span>
       </span>
-      <span className="text-[11px] font-bold text-ink">{label}</span>
     </div>
   )
 }
@@ -80,63 +75,100 @@ function ArtConnected() {
   return (
     <Stage>
       <div className="pointer-events-none absolute left-1/2 top-[54%] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full bg-frisa-100/70 blur-2xl" />
-      <div className="absolute inset-x-0 bottom-0 flex h-[232px] animate-float items-end justify-center pl-16">
-        <Mascot pose="hi" priority className="h-[214px] w-auto drop-shadow-mascot" />
+      <div className="absolute inset-x-0 bottom-0 flex h-[92%] animate-float items-end justify-center pl-16">
+        <Mascot pose="hi" priority className="h-full max-h-[280px] w-auto drop-shadow-mascot" />
       </div>
       <div className="absolute left-4 top-5 z-10 animate-bubble-in rounded-2xl rounded-bl-md bg-white px-3 py-2 shadow-card">
         <span className="text-[12px] font-bold text-ink">Hello! I&apos;m Frisa</span>
         <span className="block text-[10px] font-semibold text-ink-muted">Your fridge&apos;s smart assistant</span>
       </div>
-      <Floating className="right-4 top-[38%]" icon={Wifi} label="Connected" />
-      <Floating className="bottom-6 right-6" icon={Smartphone} label="Paired" tone="plain" />
+      <Chip className="right-4 top-[38%]" icon={Wifi} label="Connected" />
+      <Chip className="bottom-6 right-6" icon={Smartphone} label="Paired" />
     </Stage>
   )
 }
 
+/** An open fridge, stocked with the real items, and the labels FRISA reads off them. */
 function ArtInventory() {
+  const shelves: Array<Array<[string, FoodCategory]>> = [
+    [
+      ['Fresh Milk', 'Dairy'],
+      ['Orange Juice', 'Drinks'],
+      ['Greek Yogurt', 'Dairy'],
+    ],
+    [
+      ['Eggs', 'Protein'],
+      ['Cheddar Cheese', 'Dairy'],
+      ['Chicken Breast', 'Protein'],
+    ],
+    [
+      ['Spinach', 'Vegetables'],
+      ['Tomatoes', 'Vegetables'],
+      ['Apples', 'Fruit'],
+    ],
+  ]
   return (
     <Stage>
       <div className="absolute inset-0 flex items-center justify-center">
-        <FridgeBody />
+        <div className="relative flex h-[84%] w-[150px] flex-col overflow-hidden rounded-[22px] border border-white bg-gradient-to-b from-[#F3F9FD] to-white p-2 shadow-lift ring-1 ring-frisa-100">
+          <span className="pointer-events-none absolute inset-x-6 top-1.5 h-1 rounded-full bg-info-100/80" />
+          {shelves.map((row, i) => (
+            <div key={i} className="relative flex flex-1 items-end justify-around border-b-2 border-info-100/70 px-1 pb-1">
+              {row.map(([name, category]) => (
+                <FoodPhoto key={name} name={name} category={category} eager className="h-[78%] max-h-[44px] w-[30%]" />
+              ))}
+            </div>
+          ))}
+          <div className="flex h-[22%] items-center justify-center gap-1.5 rounded-b-[14px] bg-frisa-50/70">
+            <FoodPhoto name="Carrot" category="Vegetables" eager className="h-[70%] w-[34%]" />
+            <FoodPhoto name="Broccoli" category="Vegetables" eager className="h-[80%] w-[34%]" />
+          </div>
+        </div>
       </div>
-      <Floating className="left-4 top-8" icon={Leaf} label="Spinach" />
-      <Floating className="right-5 top-14" icon={Milk} label="Milk" tone="plain" />
-      <Floating className="bottom-16 left-6" icon={Egg} label="Eggs 6" tone="plain" />
-      <Floating className="bottom-8 right-8" icon={Drumstick} label="450 g" tone="orange" />
-      <Floating className="right-3 top-[46%]" icon={Apple} label="Apples" tone="green" />
+      <FoodChip className="left-3 top-6" name="Spinach" category="Vegetables" detail="1 pack · fresh drawer" />
+      <FoodChip className="right-3 top-[30%]" name="Fresh Milk" category="Dairy" detail="1 L · door shelf" style={{ animationDelay: '120ms' }} />
+      <FoodChip className="bottom-12 left-4" name="Eggs" category="Protein" detail="6 pcs · egg tray" style={{ animationDelay: '240ms' }} />
+      <FoodChip className="bottom-4 right-5" name="Chicken Breast" category="Protein" detail="450 g · lower shelf" style={{ animationDelay: '360ms' }} />
     </Stage>
   )
 }
 
 function ArtPriority() {
-  const rows = [
-    { name: 'Spinach', when: 'Tomorrow', score: 86, tone: 'orange' as const, width: '86%' },
-    { name: 'Chicken Breast', when: 'in 2 days', score: 74, tone: 'orange' as const, width: '74%' },
-    { name: 'Fresh Milk', when: 'in 3 days', score: 66, tone: 'plain' as const, width: '66%' },
+  const rows: Array<{ name: string; category: FoodCategory; when: string; score: number; urgent: boolean }> = [
+    { name: 'Spinach', category: 'Vegetables', when: 'Tomorrow', score: 86, urgent: true },
+    { name: 'Chicken Breast', category: 'Protein', when: 'in 2 days', score: 74, urgent: true },
+    { name: 'Fresh Milk', category: 'Dairy', when: 'in 3 days', score: 66, urgent: false },
   ]
   return (
     <Stage>
-      <div className="absolute inset-0 flex flex-col justify-center gap-2.5 px-6">
-        {rows.map((row) => (
-          <div key={row.name} className="rounded-2xl bg-white p-3 shadow-card">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-ink">{row.name}</span>
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[10px] font-bold',
-                  row.tone === 'orange' ? 'bg-ember-50 text-ember-700' : 'bg-mist text-ink-soft',
-                )}
-              >
-                {row.score}
-              </span>
+      <div className="absolute inset-0 flex flex-col justify-center gap-2.5 px-5">
+        {rows.map((row, i) => (
+          <div
+            key={row.name}
+            className="flex animate-fade-up items-center gap-3 rounded-2xl bg-white p-2.5 pr-3 shadow-card"
+            style={{ animationDelay: `${i * 110}ms` }}
+          >
+            <FoodAvatar name={row.name} category={row.category} size="md" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-xs font-bold text-ink">{row.name}</span>
+                <span
+                  className={cn(
+                    'num rounded-full px-2 py-0.5 text-[10px] font-bold',
+                    row.urgent ? 'bg-ember-50 text-ember-700' : 'bg-mist text-ink-soft',
+                  )}
+                >
+                  Risk {row.score}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-mist">
+                <div
+                  className={cn('h-full rounded-full', row.urgent ? 'bg-ember-500' : 'bg-frisa-400')}
+                  style={{ width: `${row.score}%` }}
+                />
+              </div>
+              <span className="mt-1 block text-[10px] font-semibold text-ink-muted">Expires {row.when}</span>
             </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-mist">
-              <div
-                className={cn('h-full rounded-full', row.tone === 'orange' ? 'bg-ember-500' : 'bg-frisa-400')}
-                style={{ width: row.width }}
-              />
-            </div>
-            <span className="mt-1.5 block text-[10px] font-semibold text-ink-muted">Expires {row.when}</span>
           </div>
         ))}
       </div>
@@ -145,38 +177,42 @@ function ArtPriority() {
 }
 
 function ArtRecipe() {
+  const ingredients: Array<[string, FoodCategory]> = [
+    ['Spinach', 'Vegetables'],
+    ['Chicken Breast', 'Protein'],
+    ['Broccoli', 'Vegetables'],
+  ]
   return (
     <Stage>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6">
-        <div className="flex items-center gap-2">
-          {[
-            { icon: Salad, label: 'Spinach' },
-            { icon: Drumstick, label: 'Chicken' },
-            { icon: Leaf, label: 'Broccoli' },
-          ].map(({ icon: Icon, label }) => (
-            <span key={label} className="flex flex-col items-center gap-1">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-frisa-600 shadow-card">
-                <Icon className="h-5 w-5" strokeWidth={1.9} />
-              </span>
-              <span className="text-[10px] font-semibold text-ink-muted">{label}</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6">
+        <div className="flex items-end gap-3">
+          {ingredients.map(([name, category], i) => (
+            <span key={name} className="flex animate-fade-up flex-col items-center gap-1" style={{ animationDelay: `${i * 100}ms` }}>
+              <FoodAvatar name={name} category={category} size="lg" className="shadow-card ring-2 ring-white" />
+              <span className="text-[10px] font-semibold text-ink-muted">{name.split(' ')[0]}</span>
             </span>
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="h-px w-8 bg-frisa-200" />
-          <FrisaMark className="h-9 w-9" />
-          <ArrowRight className="h-4 w-4 text-frisa-400" strokeWidth={2.4} />
+        <div className="flex items-center gap-2 text-frisa-500">
+          <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.6} />
+          <FrisaMark className="h-8 w-8" />
+          <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.6} />
         </div>
 
-        <div className="w-full max-w-[240px] rounded-2xl bg-white p-3 shadow-card">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-frisa-500 text-white">
-              <ChefHat className="h-5 w-5" strokeWidth={2} />
-            </span>
+        <div className="w-full max-w-[260px] animate-pop-in overflow-hidden rounded-2xl bg-white shadow-lift">
+          <div className="flex items-center gap-3 p-2">
+            <img
+              src="/Images/recipes/chicken-spinach-stir-fry.webp"
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-xl object-cover"
+            />
             <span className="min-w-0">
-              <span className="block truncate text-xs font-bold text-ink">Chicken Spinach Stir-Fry</span>
-              <span className="text-[10px] font-semibold text-frisa-700">92% match · 25 min</span>
+              <span className="block truncate text-[13px] font-bold text-ink">Chicken Spinach Stir-Fry</span>
+              <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-frisa-700">
+                <Sparkles className="h-3 w-3" strokeWidth={2.4} />
+                92% match · 25 min
+              </span>
             </span>
           </div>
         </div>

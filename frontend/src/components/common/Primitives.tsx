@@ -162,7 +162,7 @@ export function SegmentedControl<T extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              'h-9 flex-1 rounded-xl px-3 text-[13px] font-semibold transition-all duration-200',
+              'h-9 flex-1 truncate whitespace-nowrap rounded-xl px-2 text-[13px] font-semibold transition-all duration-200',
               active ? 'bg-surface text-ink shadow-card' : 'text-ink-muted hover:text-ink',
             )}
           >
@@ -183,12 +183,15 @@ export function FilterPills<T extends string>({
   value,
   onChange,
   label,
+  counts,
   className,
 }: {
   options: readonly T[]
   value: T
   onChange: (value: T) => void
   label: string
+  /** Optional item count per option, shown as a small badge. */
+  counts?: Partial<Record<T, number>>
   className?: string
 }) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -221,13 +224,23 @@ export function FilterPills<T extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(option)}
             className={cn(
-              'h-9 shrink-0 rounded-full border px-3.5 text-[13px] font-semibold transition-all duration-200 active:scale-95',
+              'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold transition-all duration-200 active:scale-95',
               active
                 ? 'border-frisa-500 bg-frisa-500 text-white shadow-pill'
                 : 'border-line bg-surface text-ink-muted hover:border-frisa-200 hover:text-ink',
             )}
           >
             {option}
+            {counts?.[option] != null ? (
+              <span
+                className={cn(
+                  'num inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
+                  active ? 'bg-white/25 text-white' : 'bg-mist text-ink-soft',
+                )}
+              >
+                {counts[option]}
+              </span>
+            ) : null}
           </button>
         )
       })}

@@ -185,3 +185,47 @@ export function foodPhoto(name: string, category?: FoodCategory): string | undef
   const slug = matchFoodPhoto(name) ?? (category ? CATEGORY_PHOTO[category] : undefined)
   return slug ? `${FOOD_DIR}/${slug}.webp` : undefined
 }
+
+const SLUG_CATEGORY: Record<FoodCategory, string[]> = {
+  Vegetables: [
+    'spinach', 'kale', 'lettuce', 'cabbage', 'broccoli', 'carrot', 'tomato', 'cucumber', 'potato', 'mushroom',
+    'zucchini', 'pumpkin', 'celery', 'green-beans', 'asparagus', 'peas', 'leek', 'bell-pepper', 'chilli',
+    'spring-onion', 'shallot', 'garlic', 'onion', 'bok-choy', 'eggplant', 'chives', 'basil', 'coriander', 'mint',
+    'parsley', 'rosemary', 'lemongrass', 'ginger',
+  ],
+  Protein: [
+    'eggs', 'salmon', 'smoked-salmon', 'prawns', 'tuna', 'mackerel', 'fish-fillet', 'chicken-wings', 'whole-chicken',
+    'chicken-breast', 'minced-beef', 'steak', 'beef', 'bacon', 'ham', 'pork', 'lamb', 'duck', 'tempeh', 'tofu',
+  ],
+  Dairy: ['milk', 'greek-yogurt', 'cheese-slices', 'parmesan', 'cheese', 'butter', 'cream'],
+  Fruit: [
+    'strawberries', 'blueberries', 'raspberries', 'mixed-berries', 'papaya', 'banana', 'apple', 'grapefruit', 'lime',
+    'lemon', 'orange', 'mango', 'avocado', 'pear', 'peach', 'cherry',
+  ],
+  Drinks: ['iced-coffee', 'jasmine-tea', 'orange-juice', 'mineral-water'],
+  Frozen: ['chicken-nuggets', 'ice-cream'],
+  Leftover: ['fried-rice', 'beef-rendang', 'pizza'],
+  Pantry: [
+    'coffee-beans', 'black-pepper', 'salt-pepper', 'fried-shallots', 'nutmeg', 'cinnamon', 'cumin', 'paprika',
+    'chilli-powder', 'kecap-manis', 'soy-sauce', 'olive-oil', 'cooking-oil', 'sesame-seeds', 'vegetable-stock',
+    'steamed-rice', 'spaghetti', 'noodles', 'granola', 'honey', 'baguette', 'bread-rolls', 'tortilla', 'bread',
+    'almonds', 'cashews', 'peanuts', 'walnuts', 'raisins',
+  ],
+}
+
+const CATEGORY_OF_SLUG = new Map<string, FoodCategory>(
+  (Object.entries(SLUG_CATEGORY) as Array<[FoodCategory, string[]]>).flatMap(([category, slugs]) =>
+    slugs.map((slug) => [slug, category] as const),
+  ),
+)
+
+/**
+ * The category a typed name most likely belongs to, so a manual entry starts
+ * correctly filed. "Frozen" and "leftover" in the name win over the food itself.
+ */
+export function guessCategory(name: string): FoodCategory | undefined {
+  if (/frozen|beku/i.test(name)) return 'Frozen'
+  if (/leftover|sisa/i.test(name)) return 'Leftover'
+  const slug = matchFoodPhoto(name)
+  return slug ? CATEGORY_OF_SLUG.get(slug) : undefined
+}

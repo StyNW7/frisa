@@ -10,6 +10,7 @@ import {
   Heart,
   Info,
   Plus,
+  ShieldAlert,
   ShoppingBasket,
   Sparkles,
   TriangleAlert,
@@ -25,18 +26,20 @@ import { SectionHeader } from '@/components/common/Primitives'
 import { useApp, useToast } from '@/hooks/useApp'
 import { RECIPES } from '@/data/recipes'
 import { deriveRecipe, ingredientStates } from '@/lib/recipes'
+import { screenRecipe, verdictReason } from '@/lib/dietary'
 import type { RecipeCompletionResult } from '@/store/AppContext'
 import { cn, kg, riskScore, rupiah } from '@/lib/utils'
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { items, favorites, toggleFavorite, completeRecipe, addShoppingItem, shopping } = useApp()
+  const { items, favorites, toggleFavorite, completeRecipe, addShoppingItem, shopping, preferences } = useApp()
   const { toast } = useToast()
 
   const base = RECIPES.find((r) => r.id === id)
   const recipe = useMemo(() => (base ? deriveRecipe(base, items) : undefined), [base, items])
   const states = useMemo(() => (base ? ingredientStates(base, items) : []), [base, items])
+  const verdict = useMemo(() => (base ? screenRecipe(base, preferences) : undefined), [base, preferences])
 
   const [cooking, setCooking] = useState(false)
   const [doneSteps, setDoneSteps] = useState<number[]>([])
@@ -139,6 +142,20 @@ export function RecipeDetailPage() {
               </div>
             ))}
           </dl>
+
+          {/* Diet and allergy warning: the recipe is still viewable, never silently cooked. */}
+          {verdict && !verdict.compatible ? (
+            <section className="flex items-start gap-3 rounded-3xl border border-danger-100 bg-danger-50 p-4" role="note">
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger-600" strokeWidth={2.2} aria-hidden />
+              <div>
+                <p className="text-[13px] font-bold text-danger-700">{verdictReason(verdict)}</p>
+                <p className="mt-1 text-[13px] leading-snug text-danger-700/80">
+                  Flagged by your household preferences because of {verdict.culprits.map((c) => c.toLowerCase()).join(', ')}.
+                  FRISA leaves it out of your suggestions.
+                </p>
+              </div>
+            </section>
+          ) : null}
 
           {/* Rescue callout */}
           {recipe.priorityItems.length > 0 ? (
@@ -246,8 +263,8 @@ export function RecipeDetailPage() {
           <div className="flex items-start gap-2.5 rounded-2xl bg-mist/60 p-3.5">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-faint" strokeWidth={2.2} aria-hidden />
             <p className="text-2xs leading-relaxed text-ink-muted">
-              Completing this recipe deducts the listed quantities from {recipe.priorityItems.length > 0 ? 'your' : 'your'}{' '}
-              inventory automatically. Pantry staples are not tracked.
+              Completing this recipe deducts the listed quantities from your inventory automatically. Pantry staples
+              are not tracked.
             </p>
           </div>
         </div>
@@ -392,8 +409,9 @@ export function RecipeDetailPage() {
               <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-faint">Deducted from inventory</p>
               <ul className="card divide-y divide-line overflow-hidden">
                 {result.consumed.map((entry) => (
-                  <li key={entry.name} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-[13px] font-semibold text-ink">{entry.name}</span>
+                  <li key={entry.name} className="flex items-center gap-3 px-3.5 py-2.5">
+                    <FoodAvatar name={entry.name} size="xs" />
+                    <span className="flex-1 text-[13px] font-semibold text-ink">{entry.name}</span>
                     <span className="num text-xs font-semibold text-ink-muted">
                       -{Math.round(entry.portion * 100) / 100} {entry.unit}
                     </span>

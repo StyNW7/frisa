@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Mic, Send, Sparkles, Square } from 'lucide-react'
 import { BottomSheet } from '@/components/common/BottomSheet'
 import { Mascot } from '@/components/common/Mascot'
-import { useApp, useUi } from '@/hooks/useApp'
+import { useApp, useRecipeRanking, useUi } from '@/hooks/useApp'
 import { answerQuestion } from '@/lib/assistant'
-import { deriveRecipes, sortRecommended } from '@/lib/recipes'
-import { RECIPES } from '@/data/recipes'
 import { ASSISTANT_PROMPTS } from '@/data/seed'
 import { cn, formatClock } from '@/lib/utils'
 
@@ -20,7 +18,8 @@ export function AskFrisaSheet() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const timers = useRef<number[]>([])
 
-  const recipes = useMemo(() => sortRecommended(deriveRecipes(RECIPES, items)), [items])
+  /* Only recipes that fit the household diet and allergies are ever suggested. */
+  const recipes = useRecipeRanking().suitable
   const savings = savingsFor('30d')
 
   const context = useMemo(

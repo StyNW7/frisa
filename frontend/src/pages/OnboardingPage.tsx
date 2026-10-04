@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/common/Button'
@@ -37,6 +37,25 @@ export function OnboardingPage() {
   const [index, setIndex] = useState(0)
 
   const last = index === SLIDES.length - 1
+
+  /* Swipe between slides, the gesture every onboarding on a phone invites. A
+     mostly horizontal drag of 48 px or more turns the page. */
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const onTouchStart = (event: React.TouchEvent) => {
+    const touch = event.touches[0]
+    touchStart.current = { x: touch.clientX, y: touch.clientY }
+  }
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = touchStart.current
+    touchStart.current = null
+    if (!start) return
+    const touch = event.changedTouches[0]
+    const dx = touch.clientX - start.x
+    const dy = touch.clientY - start.y
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+    if (dx < 0 && !last) setIndex((i) => i + 1)
+    if (dx > 0 && index > 0) setIndex((i) => i - 1)
+  }
   const slide = SLIDES[index]
   const Art = ONBOARDING_ART[index]
 
@@ -47,7 +66,7 @@ export function OnboardingPage() {
 
   return (
     <PlainAppShell>
-      <div className="flex h-full flex-col bg-surface px-6 pb-8 pt-6">
+      <div className="flex h-full flex-col bg-surface px-6 pb-8 pt-6" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div className="flex items-center justify-between">
           <FrisaWordmark className="text-[22px]" />
           <button

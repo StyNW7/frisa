@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HomeHeader } from '@/components/home/HomeHeader'
 import { StatusHeroCard } from '@/components/home/StatusHeroCard'
 import { PriorityRail } from '@/components/home/PriorityRail'
 import { SmartSuggestionCard } from '@/components/home/SmartSuggestionCard'
 import { QuickActions, RecentActivity, SavingsSummaryCard } from '@/components/home/HomeSections'
 import { SkeletonBlock, SkeletonCard } from '@/components/common/Feedback'
-import { useApp } from '@/hooks/useApp'
-import { deriveRecipes, sortRecommended } from '@/lib/recipes'
-import { RECIPES } from '@/data/recipes'
+import { useRecipeRanking } from '@/hooks/useApp'
 
 export function HomePage() {
-  const { items } = useApp()
+  const { suitable } = useRecipeRanking()
   const [loading, setLoading] = useState(true)
 
   /* A short skeleton pass on first paint: the app is talking to the hub. */
@@ -19,7 +17,7 @@ export function HomePage() {
     return () => window.clearTimeout(timer)
   }, [])
 
-  const suggestion = useMemo(() => sortRecommended(deriveRecipes(RECIPES, items))[0], [items])
+  const suggestion = suitable[0]
 
   return (
     <div className="pb-8">

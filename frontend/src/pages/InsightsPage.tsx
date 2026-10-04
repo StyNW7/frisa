@@ -76,7 +76,7 @@ export function InsightsPage() {
     { icon: Leaf, label: 'Food saved', value: kg(summary.foodSavedKg), caption: 'Eaten instead of discarded', tone: 'green' as const },
     { icon: Package, label: 'Items rescued', value: `${summary.itemsRescued}`, caption: 'Used before the expiry date', tone: 'green' as const },
     { icon: TrendingUp, label: 'Waste reduction', value: `${summary.wasteReductionPct}%`, caption: 'Against your own baseline', tone: 'orange' as const },
-    { icon: Sprout, label: 'CO2e avoided', value: `${summary.co2Kg} kg`, caption: 'Estimated, not certified', tone: 'info' as const },
+    { icon: Sprout, label: 'CO₂ avoided', value: `${summary.co2Kg} kg`, caption: 'Estimated, not certified', tone: 'info' as const },
   ]
 
   return (
@@ -241,7 +241,7 @@ export function InsightsPage() {
         </section>
 
         <p className="px-1 text-center text-2xs leading-relaxed text-ink-faint">
-          Savings are estimated from the value you record for each item. CO2e uses an average factor for household
+          Savings are estimated from the value you record for each item. CO₂e uses an average factor for household
           food waste and is an indication of direction, not a certified measurement.
         </p>
       </div>

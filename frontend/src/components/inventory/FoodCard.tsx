@@ -3,7 +3,7 @@ import { ChevronRight, MapPin } from 'lucide-react'
 import type { FoodItem } from '@/types'
 import { FoodAvatar, FoodStage } from '@/components/common/FoodAvatar'
 import { ExpiryBadge, RiskBadge, RiskMeter } from '@/components/common/Badges'
-import { cn, daysUntil, formatDate, formatQuantity, riskScore, rupiah } from '@/lib/utils'
+import { cn, daysUntil, formatDate, formatQuantity, pluralize, riskScore, rupiah } from '@/lib/utils'
 
 export function FoodCard({ item, className }: { item: FoodItem; className?: string }) {
   const score = riskScore(item)
@@ -22,7 +22,7 @@ export function FoodCard({ item, className }: { item: FoodItem; className?: stri
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold leading-tight text-ink">{item.name}</p>
+            <p className="line-clamp-2 text-[15px] font-bold leading-tight text-ink">{item.name}</p>
             <p className="mt-0.5 text-xs text-ink-muted">
               {item.category} · {formatQuantity(item)}
             </p>
@@ -46,7 +46,11 @@ export function FoodCard({ item, className }: { item: FoodItem; className?: stri
 
       <ChevronRight className="h-[18px] w-[18px] shrink-0 self-center text-ink-faint" strokeWidth={2.2} aria-hidden />
       <span className="sr-only">
-        {item.shelfStable ? 'Long shelf life' : `Expires ${formatDate(item.expiresAt)}, ${days} days remaining`}
+        {item.shelfStable
+          ? 'Long shelf life'
+          : days < 0
+            ? `Expired ${formatDate(item.expiresAt)}`
+            : `Expires ${formatDate(item.expiresAt)}, ${pluralize(days, 'day')} remaining`}
       </span>
     </Link>
   )
